@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from backend.models import CreateAgentRequest
-from backend.services.agent_client import BASE_AGENT, _make_client
+from backend.services.agent_client import BASE_AGENT, _make_client, _reset_client
 from backend.services.storage import storage
 
 log = logging.getLogger("digest.agents")
@@ -16,16 +16,20 @@ def _get_client():
 
 @router.get("")
 def list_agents():
-    result = _get_client().agents.list()
-    agents = result.agents or []
-    return [
-        {
-            "id": a.id,
-            "description": getattr(a, "description", ""),
-            "base_agent": getattr(a, "base_agent", BASE_AGENT),
-        }
-        for a in agents
-    ]
+    try:
+        result = _get_client().agents.list()
+        agents = result.agents or []
+        return [
+            {
+                "id": a.id,
+                "description": getattr(a, "description", ""),
+                "base_agent": getattr(a, "base_agent", BASE_AGENT),
+            }
+            for a in agents
+        ]
+    except Exception as exc:
+        _reset_client()
+        raise HTTPException(status_code=502, detail=str(exc))
 
 
 @router.post("", status_code=201)

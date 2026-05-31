@@ -50,6 +50,13 @@ def _make_client():
     return _client_singleton
 
 
+def _reset_client() -> None:
+    """Discard the singleton so the next call creates a fresh client."""
+    global _client_singleton
+    with _client_lock:
+        _client_singleton = None
+
+
 def _build_prompt(sources: list[str]) -> str:
     return (
         "You're building a daily tech digest.\n\n"
@@ -215,6 +222,7 @@ def _stream_sync(
 
     except Exception as exc:
         log.error("Interaction failed: %s", exc)
+        _reset_client()  # discard broken client so next run starts fresh
         put({"type": "error", "message": str(exc)})
     finally:
         put(None)
@@ -273,6 +281,7 @@ def _refine_sync(
 
     except Exception as exc:
         log.error("Refinement failed: %s", exc)
+        _reset_client()
         put({"type": "error", "message": str(exc)})
     finally:
         put(None)
