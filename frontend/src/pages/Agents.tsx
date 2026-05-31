@@ -26,9 +26,9 @@ export default function Agents() {
         <h2 className="text-sm font-semibold text-gray-700">Save current config as agent</h2>
         <div className="flex gap-3">
           <input value={id} onChange={(e) => setId(e.target.value)}
-            placeholder="agent-id" className="flex-1 border rounded-lg px-3 py-2 text-sm" />
+            placeholder="my-tech-digest" className="flex-1 border rounded-lg px-3 py-2 text-sm" />
           <input value={description} onChange={(e) => setDescription(e.target.value)}
-            placeholder="Description" className="flex-1 border rounded-lg px-3 py-2 text-sm" />
+            placeholder="Daily tech digest with editorial voice" className="flex-1 border rounded-lg px-3 py-2 text-sm" />
           <button
             onClick={() => create.mutate()}
             disabled={!id.trim() || create.isPending}

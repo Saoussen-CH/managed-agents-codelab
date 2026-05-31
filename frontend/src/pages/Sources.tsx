@@ -23,13 +23,23 @@ export default function Sources() {
   return (
     <div className="max-w-xl space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Sources</h1>
+      <p className="text-sm text-gray-500">
+        News URLs the agent fetches on every run. Defaults match the workshop.
+      </p>
       <div className="space-y-2">
         {sources.map((url) => (
-          <div key={url} className="flex items-center justify-between bg-white border rounded-lg px-4 py-2">
-            <span className="text-sm font-mono text-gray-700 truncate">{url}</span>
+          <div key={url} className="flex items-center justify-between bg-white border rounded-lg px-4 py-2 gap-3">
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-mono text-indigo-600 hover:underline truncate"
+            >
+              {url}
+            </a>
             <button
               onClick={() => mutation.mutate(sources.filter((s) => s !== url))}
-              className="text-red-400 hover:text-red-600 text-sm ml-4 shrink-0"
+              className="text-red-400 hover:text-red-600 text-sm shrink-0"
             >
               Remove
             </button>
@@ -41,7 +51,7 @@ export default function Sources() {
           value={newUrl}
           onChange={(e) => setNewUrl(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}
-          placeholder="https://example.com"
+          placeholder="https://news.ycombinator.com"
           className="flex-1 border rounded-lg px-3 py-2 text-sm"
         />
         <button
