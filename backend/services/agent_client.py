@@ -1,11 +1,14 @@
 from __future__ import annotations
 import asyncio
+import logging
 import os
 import tarfile
 import tempfile
 from pathlib import Path
 
 import requests as http_requests
+
+log = logging.getLogger("digest.agent")
 
 BASE_AGENT = "antigravity-preview-05-2026"
 
@@ -39,6 +42,7 @@ def _stream_sync(
     try:
         prompt = _build_prompt(config["sources"])
         kwargs: dict = {"agent": agent_id or BASE_AGENT, "input": prompt, "stream": True}
+        log.info("Starting interaction — agent=%s sources=%d", agent_id or BASE_AGENT, len(config["sources"]))
 
         if agent_id:
             kwargs["environment"] = "remote"
@@ -63,18 +67,23 @@ def _stream_sync(
         stream = client.interactions.create(**kwargs)
 
         last = None
+        step_count = 0
         for event in stream:
             last = event
+            step_count += 1
+            log.debug("Step %d: %s", step_count, str(event)[:120])
             put({"type": "step", "content": str(event)})
 
         env_id = getattr(stream, "environment_id", None) or getattr(last, "environment_id", None)
         iid = getattr(stream, "id", None) or getattr(last, "id", None)
         output = getattr(stream, "output_text", None) or getattr(last, "output_text", None)
 
+        log.info("Interaction complete — steps=%d env=%s interaction=%s", step_count, env_id, iid)
         put({"type": "output", "content": output or "", "environment_id": env_id, "interaction_id": iid})
         put({"type": "done", "pdf_available": True})
 
     except Exception as exc:
+        log.error("Interaction failed: %s", exc)
         put({"type": "error", "message": str(exc)})
     finally:
         put(None)  # sentinel
@@ -95,6 +104,7 @@ def _refine_sync(
     put = lambda event: loop.call_soon_threadsafe(queue.put_nowait, event)
 
     try:
+        log.info("Starting refinement — env=%s previous=%s", environment_id, interaction_id)
         stream = client.interactions.create(
             agent=agent_id or BASE_AGENT,
             input=message,
@@ -104,17 +114,22 @@ def _refine_sync(
         )
 
         last = None
+        step_count = 0
         for event in stream:
             last = event
+            step_count += 1
+            log.debug("Refine step %d: %s", step_count, str(event)[:120])
             put({"type": "step", "content": str(event)})
 
         output = getattr(stream, "output_text", None) or getattr(last, "output_text", None)
         iid = getattr(stream, "id", None) or getattr(last, "id", None)
 
+        log.info("Refinement complete — steps=%d interaction=%s", step_count, iid)
         put({"type": "output", "content": output or "", "interaction_id": iid})
         put({"type": "done", "pdf_available": True})
 
     except Exception as exc:
+        log.error("Refinement failed: %s", exc)
         put({"type": "error", "message": str(exc)})
     finally:
         put(None)
@@ -122,6 +137,7 @@ def _refine_sync(
 
 def download_pdf(environment_id: str) -> bytes:
     """Download the PDF from the environment snapshot and return its bytes."""
+    log.info("Downloading PDF snapshot — env=%s", environment_id)
     api_key = os.environ["GEMINI_API_KEY"]
     r = http_requests.get(
         f"https://generativelanguage.googleapis.com/v1beta/files/environment-{environment_id}:download",
@@ -139,4 +155,6 @@ def download_pdf(environment_id: str) -> bytes:
         pdf_path = Path(tmp) / "workspace" / "digest.pdf"
         if not pdf_path.exists():
             raise FileNotFoundError("digest.pdf not found in environment snapshot")
+        size = pdf_path.stat().st_size
+        log.info("PDF downloaded — %d bytes", size)
         return pdf_path.read_bytes()

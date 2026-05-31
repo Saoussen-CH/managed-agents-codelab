@@ -1,15 +1,27 @@
+import logging
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routes import config, agents, runs
+
+from backend.routes import agents, config, runs
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("digest")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if not os.environ.get("GEMINI_API_KEY"):
         raise RuntimeError("GEMINI_API_KEY environment variable is not set")
+    log.info("Daily Digest API started")
     yield
+    log.info("Daily Digest API stopped")
 
 
 app = FastAPI(title="Daily Digest API", lifespan=lifespan)
@@ -20,6 +32,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    response = await call_next(request)
+    log.info("%s %s  →  %s", request.method, request.url.path, response.status_code)
+    return response
+
 
 app.include_router(config.router)
 app.include_router(agents.router)

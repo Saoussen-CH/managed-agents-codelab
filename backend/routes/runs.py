@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -12,6 +13,7 @@ from backend.models import RefineRequest, RunRecord, RunStatus, StartRunRequest
 from backend.services import agent_client
 from backend.services.storage import storage
 
+log = logging.getLogger("digest.runs")
 router = APIRouter(prefix="/api/runs", tags=["runs"])
 
 _run_queues: dict[str, asyncio.Queue] = {}
@@ -24,6 +26,7 @@ async def start_run(req: StartRunRequest):
     now = datetime.now(timezone.utc).isoformat()
     run = RunRecord(id=run_id, started_at=now, agent_id=req.agent_id)
     storage.write_run(run)
+    log.info("Run created — id=%s agent=%s", run_id, req.agent_id or "inline")
 
     queue: asyncio.Queue = asyncio.Queue()
     _run_queues[run_id] = queue
@@ -79,6 +82,7 @@ async def stream_run(run_id: str):
                     current.status = RunStatus.completed
                     storage.write_run(current)
                 _run_queues.pop(run_id, None)
+                log.info("Run completed — id=%s", run_id)
                 break
 
             if event.get("type") == "output":
@@ -91,6 +95,7 @@ async def stream_run(run_id: str):
                     storage.write_run(current)
 
             if event.get("type") == "error":
+                log.error("Run failed — id=%s error=%s", run_id, event.get("message"))
                 current = storage.read_run(run_id)
                 if current:
                     current.status = RunStatus.failed
@@ -131,6 +136,7 @@ async def start_refine(run_id: str, req: RefineRequest):
     if not run.environment_id or not run.interaction_id:
         raise HTTPException(status_code=400, detail="Run has no environment to refine")
 
+    log.info("Refinement started — run=%s", run_id)
     queue: asyncio.Queue = asyncio.Queue()
     _refine_queues[run_id] = queue
     loop = asyncio.get_running_loop()

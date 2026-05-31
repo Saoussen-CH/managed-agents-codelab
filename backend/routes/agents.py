@@ -1,9 +1,13 @@
+import logging
+
 from fastapi import APIRouter, HTTPException
 from google import genai
-from backend.models import CreateAgentRequest
-from backend.services.storage import storage
-from backend.services.agent_client import BASE_AGENT
 
+from backend.models import CreateAgentRequest
+from backend.services.agent_client import BASE_AGENT
+from backend.services.storage import storage
+
+log = logging.getLogger("digest.agents")
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
 _client: genai.Client | None = None
@@ -33,6 +37,7 @@ def list_agents():
 @router.post("", status_code=201)
 def create_agent(req: CreateAgentRequest):
     config = storage.read_config()
+    log.info("Creating agent — id=%s", req.id)
     agent = _get_client().agents.create(
         id=req.id,
         base_agent=BASE_AGENT,
@@ -46,6 +51,7 @@ def create_agent(req: CreateAgentRequest):
             ],
         },
     )
+    log.info("Agent created — id=%s", agent.id)
     return {"id": agent.id, "description": getattr(agent, "description", req.description)}
 
 
@@ -66,5 +72,6 @@ def get_agent(agent_id: str):
 def delete_agent(agent_id: str):
     try:
         _get_client().agents.delete(id=agent_id)
+        log.info("Agent deleted — id=%s", agent_id)
     except Exception:
         raise HTTPException(status_code=404, detail="Agent not found")
