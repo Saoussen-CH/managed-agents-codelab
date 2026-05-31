@@ -71,6 +71,33 @@ def _base_environment(extra_sources: list[dict] | None = None) -> dict:
     return env
 
 
+def _create_with_provisioning_retry(client, kwargs: dict, put):
+    """
+    Vertex AI provisions sandboxes on first call. Retry up to 5 times on
+    'Provisioning is in progress' 500 errors with exponential backoff.
+    """
+    import time
+
+    max_attempts = 5
+    delay = 5  # seconds, doubles each retry
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return client.interactions.create(**kwargs)
+        except Exception as exc:
+            msg = str(exc)
+            if "Provisioning is in progress" in msg and attempt < max_attempts:
+                log.info(
+                    "Sandbox provisioning in progress — retrying in %ds (attempt %d/%d)",
+                    delay, attempt, max_attempts,
+                )
+                put({"type": "step", "content": f"⏳ Sandbox provisioning… retrying in {delay}s (attempt {attempt}/{max_attempts})"})
+                time.sleep(delay)
+                delay = min(delay * 2, 30)
+            else:
+                raise
+
+
 def _stream_sync(
     agent_id: str | None,
     config: dict,
@@ -105,7 +132,7 @@ def _stream_sync(
                 {"type": "inline", "target": ".agents/skills/digest-pdf/SKILL.md", "content": config["skill_md"]},
             ])
 
-        stream = client.interactions.create(**kwargs)
+        stream = _create_with_provisioning_retry(client, kwargs, put)
 
         last = None
         step_count = 0
