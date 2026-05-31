@@ -13,7 +13,10 @@ function parseFrontmatter(md: string) {
 }
 
 function buildFrontmatter(name: string, description: string, body: string) {
-  return `---\nname: ${name}\ndescription: ${description}\n---\n\n${body}`;
+  // Strip newlines from single-line fields to prevent broken YAML
+  const safeName = name.replace(/[\r\n]/g, " ").trim();
+  const safeDesc = description.replace(/[\r\n]/g, " ").trim();
+  return `---\nname: ${safeName}\ndescription: ${safeDesc}\n---\n\n${body}`;
 }
 
 export default function Skills() {
@@ -22,15 +25,17 @@ export default function Skills() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [body, setBody] = useState("");
+  const [initialised, setInitialised] = useState(false);
 
   useEffect(() => {
-    if (config) {
+    if (config && !initialised) {
       const p = parseFrontmatter(config.skill_md);
       setName(p.name);
       setDescription(p.description);
       setBody(p.body);
+      setInitialised(true);
     }
-  }, [config]);
+  }, [config, initialised]);
 
   const mutation = useMutation({
     mutationFn: () => updateConfig({ skill_md: buildFrontmatter(name, description, body) }),

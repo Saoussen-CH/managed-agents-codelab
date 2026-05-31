@@ -212,11 +212,11 @@ def _stream_sync(
 
         # Gemini API fallbacks — these attributes live on the stream object after iteration
         if not env_id:
-            env_id = getattr(stream, "environment_id", None) or getattr(last, "environment_id", None)
+            env_id = getattr(stream, "environment_id", None) or (getattr(last, "environment_id", None) if last else None)
         if not iid:
-            iid = getattr(stream, "id", None) or getattr(last, "id", None)
+            iid = getattr(stream, "id", None) or (getattr(last, "id", None) if last else None)
         output = "".join(text_parts) if text_parts else (
-            getattr(stream, "output_text", None) or getattr(last, "output_text", None)
+            getattr(stream, "output_text", None) or (getattr(last, "output_text", None) if last else None)
         )
 
         log.info("Interaction complete — steps=%d env=%s interaction=%s", step_count, env_id, iid)
@@ -257,7 +257,7 @@ def _refine_sync(
             kwargs["background"] = True
             kwargs["store"] = True
 
-        stream = client.interactions.create(**kwargs)
+        stream = _create_with_provisioning_retry(client, kwargs, put)
 
         text_parts: list[str] = []
         iid = None
@@ -273,9 +273,9 @@ def _refine_sync(
                 iid = i
 
         if not iid:
-            iid = getattr(stream, "id", None) or getattr(last, "id", None)
+            iid = getattr(stream, "id", None) or (getattr(last, "id", None) if last else None)
         output = "".join(text_parts) if text_parts else (
-            getattr(stream, "output_text", None) or getattr(last, "output_text", None)
+            getattr(stream, "output_text", None) or (getattr(last, "output_text", None) if last else None)
         )
 
         log.info("Refinement complete — steps=%d interaction=%s", step_count, iid)

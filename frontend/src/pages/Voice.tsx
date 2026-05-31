@@ -7,7 +7,14 @@ export default function Voice() {
   const { data: config } = useQuery({ queryKey: ["config"], queryFn: getConfig });
   const [voice, setVoice] = useState("");
 
-  useEffect(() => { if (config) setVoice(config.voice); }, [config]);
+  // Only initialise once — don't overwrite user edits if config refetches after a save
+  const [initialised, setInitialised] = useState(false);
+  useEffect(() => {
+    if (config && !initialised) {
+      setVoice(config.voice);
+      setInitialised(true);
+    }
+  }, [config, initialised]);
 
   const mutation = useMutation({
     mutationFn: (voice: string) => updateConfig({ voice }),

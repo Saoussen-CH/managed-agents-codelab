@@ -88,10 +88,15 @@ async def stream_run(run_id: str):
             if event.get("type") == "output":
                 current = storage.read_run(run_id)
                 if current:
-                    current.output_text = event.get("content")
-                    current.environment_id = event.get("environment_id")
-                    current.interaction_id = event.get("interaction_id")
-                    current.pdf_available = True
+                    if event.get("content") is not None:
+                        current.output_text = event.get("content")
+                    if event.get("environment_id"):
+                        current.environment_id = event.get("environment_id")
+                    if event.get("interaction_id"):
+                        current.interaction_id = event.get("interaction_id")
+                    # pdf_available only if we have an env_id to download from
+                    if current.environment_id:
+                        current.pdf_available = True
                     storage.write_run(current)
 
             if event.get("type") == "error":

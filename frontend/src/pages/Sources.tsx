@@ -14,9 +14,19 @@ export default function Sources() {
 
   const sources = config?.sources ?? [];
 
+  const [urlError, setUrlError] = useState("");
+
   function add() {
-    if (!newUrl.trim()) return;
-    mutation.mutate([...sources, newUrl.trim()]);
+    const trimmed = newUrl.trim();
+    if (!trimmed) return;
+    try {
+      new URL(trimmed);
+    } catch {
+      setUrlError("Enter a valid URL (e.g. https://example.com)");
+      return;
+    }
+    setUrlError("");
+    mutation.mutate([...sources, trimmed]);
     setNewUrl("");
   }
 
@@ -46,20 +56,23 @@ export default function Sources() {
           </div>
         ))}
       </div>
-      <div className="flex gap-2">
-        <input
-          value={newUrl}
-          onChange={(e) => setNewUrl(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && add()}
-          placeholder="https://news.ycombinator.com"
-          className="flex-1 border rounded-lg px-3 py-2 text-sm"
-        />
-        <button
-          onClick={add}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
-        >
-          Add
-        </button>
+      <div className="space-y-1">
+        <div className="flex gap-2">
+          <input
+            value={newUrl}
+            onChange={(e) => { setNewUrl(e.target.value); setUrlError(""); }}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+            placeholder="https://news.ycombinator.com"
+            className={`flex-1 border rounded-lg px-3 py-2 text-sm ${urlError ? "border-red-400" : ""}`}
+          />
+          <button
+            onClick={add}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+          >
+            Add
+          </button>
+        </div>
+        {urlError && <p className="text-xs text-red-500">{urlError}</p>}
       </div>
     </div>
   );

@@ -72,13 +72,13 @@ def create_agent(req: CreateAgentRequest):
                 agent = _get_client().agents.get(id=req.id)
                 if getattr(agent, "id", None):
                     break
-            except Exception:
-                pass
+            except Exception as poll_exc:
+                log.warning("Polling attempt %d failed: %s", attempt + 1, poll_exc)
         if not getattr(agent, "id", None):
             log.warning("Agent provisioning timed out — returning requested id=%s", req.id)
             return {"id": req.id, "description": req.description}
 
-    log.info("Agent created — id=%s", agent.id)
+    log.info("Agent created — id=%s", getattr(agent, "id", req.id))
     return {"id": agent.id, "description": getattr(agent, "description", req.description)}
 
 
