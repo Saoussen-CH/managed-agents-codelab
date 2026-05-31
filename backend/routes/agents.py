@@ -54,6 +54,11 @@ def create_agent(req: CreateAgentRequest):
         base_agent=BASE_AGENT,
         description=req.description,
         system_instruction=config.voice,
+        tools=[
+            {"type": "code_execution"},
+            {"type": "google_search"},
+            {"type": "url_context"},
+        ],
         base_environment=base_env,
     )
 
