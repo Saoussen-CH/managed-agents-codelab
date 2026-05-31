@@ -28,7 +28,7 @@ async def start_run(req: StartRunRequest):
     queue: asyncio.Queue = asyncio.Queue()
     _run_queues[run_id] = queue
     config = storage.read_config().model_dump()
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     async def background():
         await loop.run_in_executor(
@@ -133,7 +133,7 @@ async def start_refine(run_id: str, req: RefineRequest):
 
     queue: asyncio.Queue = asyncio.Queue()
     _refine_queues[run_id] = queue
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     async def background():
         await loop.run_in_executor(

@@ -6,12 +6,19 @@ from backend.services.agent_client import BASE_AGENT
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
-genai_client = genai.Client()
+_client: genai.Client | None = None
+
+
+def _get_client() -> genai.Client:
+    global _client
+    if _client is None:
+        _client = genai.Client()
+    return _client
 
 
 @router.get("")
 def list_agents():
-    result = genai_client.agents.list()
+    result = _get_client().agents.list()
     agents = result.agents or []
     return [
         {
@@ -26,7 +33,7 @@ def list_agents():
 @router.post("", status_code=201)
 def create_agent(req: CreateAgentRequest):
     config = storage.read_config()
-    agent = genai_client.agents.create(
+    agent = _get_client().agents.create(
         id=req.id,
         base_agent=BASE_AGENT,
         description=req.description,
@@ -45,7 +52,7 @@ def create_agent(req: CreateAgentRequest):
 @router.get("/{agent_id}")
 def get_agent(agent_id: str):
     try:
-        a = genai_client.agents.get(id=agent_id)
+        a = _get_client().agents.get(id=agent_id)
         return {
             "id": a.id,
             "description": getattr(a, "description", ""),
@@ -58,6 +65,6 @@ def get_agent(agent_id: str):
 @router.delete("/{agent_id}", status_code=204)
 def delete_agent(agent_id: str):
     try:
-        genai_client.agents.delete(id=agent_id)
+        _get_client().agents.delete(id=agent_id)
     except Exception:
         raise HTTPException(status_code=404, detail="Agent not found")

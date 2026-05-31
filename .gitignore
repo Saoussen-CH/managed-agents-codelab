@@ -6,3 +6,4 @@ output/
 snapshot.tar
 .venv/
 .claude/
+data/
