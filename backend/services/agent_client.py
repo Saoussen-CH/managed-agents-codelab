@@ -181,7 +181,10 @@ def _stream_sync(
             kwargs["store"] = True
 
         if agent_id:
-            kwargs["environment"] = _base_environment()
+            if not _is_vertex():
+                # Gemini API: "remote" forks a fresh sandbox from the agent's base_environment
+                kwargs["environment"] = "remote"
+            # Vertex: omit environment — the agent's base_environment is used automatically
         else:
             kwargs["system_instruction"] = config["voice"]
             kwargs["environment"] = _base_environment(extra_sources=[
