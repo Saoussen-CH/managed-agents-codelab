@@ -1,10 +1,19 @@
 from google import genai
 from config import AGENTS_MD, EDITORIAL_VOICE, PDF_SKILL
 
+AGENT_ID = "my-tech-digest"
+
 client = genai.Client()
 
+# Delete existing agent if present so this script is safely re-runnable
+try:
+    client.agents.delete(id=AGENT_ID)
+    print(f"Deleted existing agent: {AGENT_ID}")
+except Exception:
+    pass
+
 agent = client.agents.create(
-    id="my-tech-digest",
+    id=AGENT_ID,
     base_agent="antigravity-preview-05-2026",
     description="Daily tech news digest as a PDF.",
     system_instruction=EDITORIAL_VOICE,
