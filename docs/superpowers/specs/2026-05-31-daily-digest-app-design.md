@@ -38,10 +38,12 @@ backend/    FastAPI + uvicorn     → localhost:8000
 
 Vite proxies `/api/*` to `localhost:8000` during development so the frontend never handles CORS.
 
-### Project structure
+### Repo layout
+
+The app lives at the repo root. Existing workshop scripts move to `workshop/`.
 
 ```
-digest-app/
+/                             # repo root
 ├── backend/
 │   ├── main.py               # FastAPI app, mounts routers
 │   ├── routes/
@@ -69,6 +71,7 @@ digest-app/
 │   │       └── RunCard.tsx       # shared run summary card
 │   ├── package.json
 │   └── vite.config.ts
+├── workshop/                 # original stage scripts (moved from root)
 ├── data/
 │   ├── config.json
 │   └── runs/                 # one <run-id>.json per run
@@ -88,7 +91,7 @@ digest-app/
 | POST | `/api/agents` | Create agent from current config |
 | GET | `/api/agents/{id}` | Get one agent |
 | DELETE | `/api/agents/{id}` | Delete agent |
-| POST | `/api/runs` | Start a run, return run ID immediately |
+| POST | `/api/runs` | Start a run `{ agent_id?: string }` — uses current config; returns `{ run_id }` immediately |
 | GET | `/api/runs/{id}/stream` | SSE: stream agent events |
 | GET | `/api/runs` | List all past runs |
 | GET | `/api/runs/{id}` | Get run detail |
@@ -136,7 +139,7 @@ Each event sent over the stream is a JSON line:
 { "type": "error", "message": "..." }
 ```
 
-`POST /api/runs` launches the interaction in a `BackgroundTask`. The SSE stream endpoint reads from an in-memory async queue keyed by run ID. When the background task produces events it pushes them to the queue; the SSE handler drains and forwards them.
+`POST /api/runs` launches the interaction as an `asyncio.Task` (not `BackgroundTask`). The `google-genai` streaming API is synchronous; it runs inside `asyncio.get_event_loop().run_in_executor(None, ...)` so it doesn't block the event loop. The executor thread pushes events into an `asyncio.Queue` keyed by run ID using `loop.call_soon_threadsafe(queue.put_nowait, event)`. The SSE handler is an async generator that drains the queue and forwards events. A sentinel value `None` signals the stream is done.
 
 ---
 
@@ -174,7 +177,7 @@ Paginated list of all past runs, newest first. Columns: date, agent used, status
 
 ```
 User clicks "Run Digest"
-  → POST /api/runs  { agent_id?, sources?, voice? }
+  → POST /api/runs  { agent_id?: string }
   ← { run_id }
 
 Client opens EventSource("/api/runs/:id/stream")
@@ -201,7 +204,7 @@ Client opens EventSource("/api/runs/:id/refine/stream")
 ## Error Handling
 
 - If the Managed Agents API call fails, the background task pushes `{ type: "error", message: "..." }` to the queue and sets `run.status = "failed"`.
-- If `GEMINI_API_KEY` is missing at startup, FastAPI raises on first request with a clear 500 message.
+- If `GEMINI_API_KEY` is missing, FastAPI checks at startup (`@app.on_event("startup")`) and exits with a clear error before accepting any requests.
 - SSE stream closes gracefully if the client disconnects mid-run (run continues in background, result stored).
 
 ---
@@ -237,6 +240,12 @@ cd frontend
 npm install
 npm run dev
 ```
+
+---
+
+## Known Constraints
+
+- **One refinement turn per run.** `refine_interaction_id` stores only the last refinement. The `RefinePanel` replaces its output on each submit rather than threading unlimited turns. This matches the workshop scope.
 
 ---
 
