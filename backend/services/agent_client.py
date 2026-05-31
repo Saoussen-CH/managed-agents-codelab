@@ -37,7 +37,6 @@ def _make_client():
         # Strip API key vars — Vertex uses ADC (OAuth2), not API keys.
         for _key in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
             os.environ.pop(_key, None)
-        # Notebooks use enterprise=True (not vertexai=True)
         _client_singleton = genai.Client(enterprise=True, project=project, location=location)
     else:
         log.info("Creating Gemini API client")
@@ -70,87 +69,64 @@ def _base_environment(extra_sources: list[dict] | None = None) -> dict:
     return env
 
 
-def _parse_events(stream) -> tuple[list[str], str | None, str | None, str | None]:
+def _handle_event(event, put, text_parts: list[str]) -> tuple[str | None, str | None]:
     """
-    Iterate stream events. Returns (step_contents, output_text, env_id, interaction_id).
-
-    Handles two event formats:
-    - Gemini API: raw objects with output_text/environment_id/id on stream after iteration
-    - Vertex AI: typed objects (StepStart/StepDelta/InteractionCompletedEvent) —
-                 text in StepDelta.delta.text, IDs in InteractionCompletedEvent.interaction
+    Process one stream event. Calls put() immediately for displayable steps.
+    Appends text to text_parts for Vertex DeltaText chunks.
+    Returns (env_id, interaction_id) if found in this event, else (None, None).
     """
-    steps: list[str] = []
-    text_parts: list[str] = []
+    event_type = getattr(event, "event_type", None)
     env_id = None
     iid = None
-    last = None
 
-    for event in stream:
-        last = event
-        event_type = getattr(event, "event_type", None)
+    if event_type is None:
+        # Gemini API — raw event object
+        put({"type": "step", "content": str(event)[:400]})
 
-        if event_type is None:
-            # Gemini API — raw event, stringify for display
-            steps.append(str(event)[:300])
-            continue
+    elif event_type == "interaction.created":
+        put({"type": "step", "content": "⚡ Interaction started"})
 
-        # Vertex typed events
-        if event_type == "step.start":
-            step = getattr(event, "step", None)
-            if step:
-                stype = getattr(step, "type", "")
-                name = getattr(step, "name", "")
-                if stype == "function_call" and name:
-                    steps.append(f"🔧 {name}")
-                elif stype == "model_output":
-                    steps.append("✍️ Writing response…")
+    elif event_type == "step.start":
+        step = getattr(event, "step", None)
+        if step:
+            stype = getattr(step, "type", "")
+            name = getattr(step, "name", "")
+            if stype == "function_call" and name:
+                put({"type": "step", "content": f"🔧 {name}"})
+            elif stype == "model_output":
+                put({"type": "step", "content": "✍️ Writing response…"})
 
-        elif event_type == "step.delta":
-            delta = getattr(event, "delta", None)
-            if delta:
-                dtype = getattr(delta, "type", "")
-                if dtype == "text":
-                    chunk = getattr(delta, "text", "")
-                    if chunk:
-                        text_parts.append(chunk)
-                elif dtype == "function_result":
-                    result = getattr(delta, "result", None)
-                    if result:
-                        steps.append(f"  → {str(result)[:200]}")
-                elif dtype == "arguments_delta":
-                    args = getattr(delta, "arguments", "")
-                    if args:
-                        steps.append(f"  {args[:200]}")
+    elif event_type == "step.delta":
+        delta = getattr(event, "delta", None)
+        if delta:
+            dtype = getattr(delta, "type", "")
+            if dtype == "text":
+                # Accumulate — don't push individual chunks (too noisy)
+                text_parts.append(getattr(delta, "text", ""))
+            elif dtype == "function_result":
+                result = getattr(delta, "result", None)
+                if result:
+                    put({"type": "step", "content": f"  → {str(result)[:300]}"})
+            elif dtype == "arguments_delta":
+                args = getattr(delta, "arguments", "")
+                if args:
+                    put({"type": "step", "content": f"  {args[:300]}"})
 
-        elif event_type == "interaction.completed":
-            interaction = getattr(event, "interaction", None)
-            if interaction:
-                env_id = getattr(interaction, "environment_id", None)
-                iid = getattr(interaction, "id", None)
-                usage = getattr(interaction, "usage", None)
-                if usage:
-                    log.info(
-                        "Usage — input=%s output=%s total=%s",
-                        getattr(usage, "total_input_tokens", "?"),
-                        getattr(usage, "total_output_tokens", "?"),
-                        getattr(usage, "total_tokens", "?"),
-                    )
+    elif event_type == "interaction.completed":
+        interaction = getattr(event, "interaction", None)
+        if interaction:
+            env_id = getattr(interaction, "environment_id", None)
+            iid = getattr(interaction, "id", None)
+            usage = getattr(interaction, "usage", None)
+            if usage:
+                log.info(
+                    "Usage — input=%s output=%s total=%s",
+                    getattr(usage, "total_input_tokens", "?"),
+                    getattr(usage, "total_output_tokens", "?"),
+                    getattr(usage, "total_tokens", "?"),
+                )
 
-        elif event_type == "interaction.created":
-            steps.append("⚡ Interaction started")
-
-    # Gemini API: env_id and iid are on the stream object after iteration
-    if not env_id:
-        env_id = getattr(stream, "environment_id", None) or getattr(last, "environment_id", None)
-    if not iid:
-        iid = getattr(stream, "id", None) or getattr(last, "id", None)
-
-    # Output text: Vertex accumulates from DeltaText; Gemini API has output_text on stream
-    output = "".join(text_parts) if text_parts else (
-        getattr(stream, "output_text", None) or getattr(last, "output_text", None)
-    )
-
-    return steps, output, env_id, iid
+    return env_id, iid
 
 
 def _create_with_provisioning_retry(client, kwargs: dict, put) -> object:
@@ -179,7 +155,7 @@ def _stream_sync(
     queue: asyncio.Queue,
     loop: asyncio.AbstractEventLoop,
 ) -> None:
-    """Runs in thread executor. Pushes SSE event dicts into the asyncio queue."""
+    """Runs in thread executor. Pushes SSE event dicts live into the asyncio queue."""
     client = _make_client()
     put = lambda event: loop.call_soon_threadsafe(queue.put_nowait, event)
 
@@ -188,7 +164,6 @@ def _stream_sync(
         log.info("Starting interaction — agent=%s sources=%d", agent_id or BASE_AGENT, len(config["sources"]))
 
         kwargs: dict = {"agent": agent_id or BASE_AGENT, "input": prompt, "stream": True}
-
         if _is_vertex():
             kwargs["background"] = True
             kwargs["store"] = True
@@ -203,12 +178,33 @@ def _stream_sync(
             ])
 
         stream = _create_with_provisioning_retry(client, kwargs, put)
-        steps, output, env_id, iid = _parse_events(stream)
 
-        for step in steps:
-            put({"type": "step", "content": step})
+        text_parts: list[str] = []
+        env_id = None
+        iid = None
+        last = None
+        step_count = 0
 
-        log.info("Interaction complete — env=%s interaction=%s", env_id, iid)
+        for event in stream:
+            last = event
+            step_count += 1
+            log.debug("Step %d: %s", step_count, str(event)[:120])
+            e, i = _handle_event(event, put, text_parts)
+            if e:
+                env_id = e
+            if i:
+                iid = i
+
+        # Gemini API fallbacks — these attributes live on the stream object after iteration
+        if not env_id:
+            env_id = getattr(stream, "environment_id", None) or getattr(last, "environment_id", None)
+        if not iid:
+            iid = getattr(stream, "id", None) or getattr(last, "id", None)
+        output = "".join(text_parts) if text_parts else (
+            getattr(stream, "output_text", None) or getattr(last, "output_text", None)
+        )
+
+        log.info("Interaction complete — steps=%d env=%s interaction=%s", step_count, env_id, iid)
         put({"type": "output", "content": output or "", "environment_id": env_id, "interaction_id": iid})
         put({"type": "done", "pdf_available": True})
 
@@ -227,7 +223,7 @@ def _refine_sync(
     queue: asyncio.Queue,
     loop: asyncio.AbstractEventLoop,
 ) -> None:
-    """Runs in thread executor. Streams a refinement turn."""
+    """Runs in thread executor. Streams a refinement turn live."""
     client = _make_client()
     put = lambda event: loop.call_soon_threadsafe(queue.put_nowait, event)
 
@@ -246,12 +242,27 @@ def _refine_sync(
             kwargs["store"] = True
 
         stream = client.interactions.create(**kwargs)
-        steps, output, _, iid = _parse_events(stream)
 
-        for step in steps:
-            put({"type": "step", "content": step})
+        text_parts: list[str] = []
+        iid = None
+        last = None
+        step_count = 0
 
-        log.info("Refinement complete — interaction=%s", iid)
+        for event in stream:
+            last = event
+            step_count += 1
+            log.debug("Refine step %d: %s", step_count, str(event)[:120])
+            _, i = _handle_event(event, put, text_parts)
+            if i:
+                iid = i
+
+        if not iid:
+            iid = getattr(stream, "id", None) or getattr(last, "id", None)
+        output = "".join(text_parts) if text_parts else (
+            getattr(stream, "output_text", None) or getattr(last, "output_text", None)
+        )
+
+        log.info("Refinement complete — steps=%d interaction=%s", step_count, iid)
         put({"type": "output", "content": output or "", "interaction_id": iid})
         put({"type": "done", "pdf_available": True})
 
