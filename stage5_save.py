@@ -1,5 +1,5 @@
 from google import genai
-from config import AGENTS_MD, EDITORIAL_VOICE, PDF_SKILL
+from config import AGENTS_MD, BASE_AGENT, EDITORIAL_VOICE, PDF_SKILL
 
 AGENT_ID = "my-tech-digest"
 
@@ -14,7 +14,7 @@ except Exception:
 
 agent = client.agents.create(
     id=AGENT_ID,
-    base_agent="antigravity-preview-05-2026",
+    base_agent=BASE_AGENT,
     description="Daily tech news digest as a PDF.",
     system_instruction=EDITORIAL_VOICE,
     base_environment={

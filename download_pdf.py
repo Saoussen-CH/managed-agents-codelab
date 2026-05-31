@@ -20,7 +20,7 @@ def download(env_id: str) -> None:
         f.write(r.content)
 
     with tarfile.open("snapshot.tar") as tar:
-        tar.extractall(path="./output")
+        tar.extractall(path="./output", filter="data")
 
     print("PDF saved to ./output/workspace/digest.pdf")
 
