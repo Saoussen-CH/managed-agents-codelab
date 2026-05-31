@@ -18,16 +18,29 @@ def _is_vertex() -> bool:
     return os.environ.get("USE_VERTEX", "").lower() in ("1", "true", "yes")
 
 
+_client_singleton = None
+
+
 def _make_client():
+    """Return a module-level singleton client. Creates it once on first call."""
+    global _client_singleton
+    if _client_singleton is not None:
+        return _client_singleton
+
     from google import genai
     if _is_vertex():
         project = os.environ.get("GOOGLE_CLOUD_PROJECT")
         location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
         if not project:
             raise RuntimeError("GOOGLE_CLOUD_PROJECT must be set when USE_VERTEX=true")
-        log.info("Using Vertex AI — project=%s location=%s", project, location)
-        return genai.Client(vertexai=True, project=project, location=location)
-    return genai.Client()
+        log.info("Creating Vertex AI client — project=%s location=%s", project, location)
+        log.info("Auth: using Application Default Credentials (run 'gcloud auth application-default login' if not set)")
+        _client_singleton = genai.Client(vertexai=True, project=project, location=location)
+    else:
+        log.info("Creating Gemini API client")
+        _client_singleton = genai.Client()
+
+    return _client_singleton
 
 
 def _build_prompt(sources: list[str]) -> str:
@@ -63,12 +76,11 @@ def _stream_sync(
     """Runs in a thread executor. Pushes SSE event dicts into the asyncio queue."""
     client = _make_client()
     put = lambda event: loop.call_soon_threadsafe(queue.put_nowait, event)
-    surface = "Vertex AI" if _is_vertex() else "Gemini API"
 
     try:
         prompt = _build_prompt(config["sources"])
-        log.info("Starting interaction — surface=%s agent=%s sources=%d",
-                 surface, agent_id or BASE_AGENT, len(config["sources"]))
+        log.info("Starting interaction — agent=%s sources=%d",
+                 agent_id or BASE_AGENT, len(config["sources"]))
 
         kwargs: dict = {
             "agent": agent_id or BASE_AGENT,
