@@ -14,7 +14,7 @@ A local web app built on the [Google Managed Agents API](https://ai.google.dev/g
 ```bash
 # Backend
 uv sync
-export GEMINI_API_KEY="your-key-here"
+cp .env.example .env        # then edit .env and paste your API key
 
 # Frontend
 cd frontend

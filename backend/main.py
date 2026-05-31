@@ -2,6 +2,10 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
+
+load_dotenv()  # loads .env from repo root if present
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
