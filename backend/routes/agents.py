@@ -1,23 +1,17 @@
 import logging
 
 from fastapi import APIRouter, HTTPException
-from google import genai
 
 from backend.models import CreateAgentRequest
-from backend.services.agent_client import BASE_AGENT
+from backend.services.agent_client import BASE_AGENT, _make_client
 from backend.services.storage import storage
 
 log = logging.getLogger("digest.agents")
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
-_client: genai.Client | None = None
 
-
-def _get_client() -> genai.Client:
-    global _client
-    if _client is None:
-        _client = genai.Client()
-    return _client
+def _get_client():
+    return _make_client()
 
 
 @router.get("")

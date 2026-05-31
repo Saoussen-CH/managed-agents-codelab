@@ -26,8 +26,15 @@ log = logging.getLogger("digest")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if not os.environ.get("GEMINI_API_KEY"):
-        raise RuntimeError("GEMINI_API_KEY environment variable is not set")
+    use_vertex = os.environ.get("USE_VERTEX", "").lower() in ("1", "true", "yes")
+    if use_vertex:
+        if not os.environ.get("GOOGLE_CLOUD_PROJECT"):
+            raise RuntimeError("GOOGLE_CLOUD_PROJECT must be set when USE_VERTEX=true")
+        log.info("Surface: Vertex AI Agent Platform (project=%s)", os.environ["GOOGLE_CLOUD_PROJECT"])
+    else:
+        if not os.environ.get("GEMINI_API_KEY"):
+            raise RuntimeError("GEMINI_API_KEY must be set (or set USE_VERTEX=true for Vertex AI)")
+        log.info("Surface: Gemini API")
     log.info("Daily Digest API started")
     yield
     log.info("Daily Digest API stopped")
