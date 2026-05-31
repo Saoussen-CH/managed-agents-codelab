@@ -34,7 +34,11 @@ def _make_client():
         if not project:
             raise RuntimeError("GOOGLE_CLOUD_PROJECT must be set when USE_VERTEX=true")
         log.info("Creating Vertex AI client — project=%s location=%s", project, location)
-        log.info("Auth: using Application Default Credentials (run 'gcloud auth application-default login' if not set)")
+        # Remove API key env vars — Vertex uses ADC (OAuth2), not API keys.
+        # Leaving GEMINI_API_KEY set causes the SDK to send it as an API key
+        # header which Vertex rejects with 401 CREDENTIALS_MISSING.
+        for _key in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+            os.environ.pop(_key, None)
         _client_singleton = genai.Client(vertexai=True, project=project, location=location)
     else:
         log.info("Creating Gemini API client")
