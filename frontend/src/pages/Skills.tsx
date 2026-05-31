@@ -45,11 +45,13 @@ export default function Skills() {
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Name</label>
           <input value={name} onChange={(e) => setName(e.target.value)}
+            placeholder="digest-pdf"
             className="w-full border rounded-lg px-3 py-2 text-sm" />
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Description</label>
           <input value={description} onChange={(e) => setDescription(e.target.value)}
+            placeholder="Convert a tech news digest into a clean PDF."
             className="w-full border rounded-lg px-3 py-2 text-sm" />
         </div>
       </div>
@@ -57,6 +59,7 @@ export default function Skills() {
         value={body}
         onChange={(e) => setBody(e.target.value)}
         rows={14}
+        placeholder="# Digest PDF Skill&#10;&#10;When the user asks for a PDF, follow this exact procedure:&#10;&#10;1. If reportlab isn't installed, run `pip install reportlab`.&#10;2. Build the PDF at /workspace/digest.pdf using ReportLab."
         className="w-full border rounded-lg px-3 py-2 text-sm font-mono resize-y"
       />
       <div className="flex justify-end">

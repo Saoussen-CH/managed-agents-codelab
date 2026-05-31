@@ -22,6 +22,10 @@ export default function Voice() {
         value={voice}
         onChange={(e) => setVoice(e.target.value)}
         rows={10}
+        placeholder="You are the editor of a sharp, slightly skeptical tech newsletter.
+Short sentences. Funny but never silly.
+Highlight what matters. Call out hype.
+Always finish with a 'Skip This' callout — one story that's just noise."
         className="w-full border rounded-lg px-3 py-2 text-sm font-mono resize-y"
       />
       <div className="flex items-center justify-between">
