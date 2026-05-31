@@ -78,11 +78,11 @@ async def stream_run(run_id: str):
             event = await queue.get()
             if event is None:
                 current = storage.read_run(run_id)
-                if current:
+                if current and current.status != RunStatus.failed:
                     current.status = RunStatus.completed
                     storage.write_run(current)
+                    log.info("Run completed — id=%s", run_id)
                 _run_queues.pop(run_id, None)
-                log.info("Run completed — id=%s", run_id)
                 break
 
             if event.get("type") == "output":
@@ -174,7 +174,7 @@ async def stream_refine(run_id: str):
             event = await queue.get()
             if event is None:
                 current = storage.read_run(run_id)
-                if current:
+                if current and current.status != RunStatus.failed:
                     current.pdf_available = True
                     storage.write_run(current)
                 _refine_queues.pop(run_id, None)

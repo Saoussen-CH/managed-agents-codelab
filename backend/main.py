@@ -12,6 +12,11 @@ logging.basicConfig(
     format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
     datefmt="%H:%M:%S",
 )
+
+# Silence noisy third-party loggers
+for _noisy in ("httpx", "httpcore", "google.genai", "watchfiles.main", "uvicorn.access"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 log = logging.getLogger("digest")
 
 
@@ -37,7 +42,9 @@ app.add_middleware(
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     response = await call_next(request)
-    log.info("%s %s  →  %s", request.method, request.url.path, response.status_code)
+    # Skip SSE streams — they stay open and log on every chunk otherwise
+    if "text/event-stream" not in response.headers.get("content-type", ""):
+        log.info("%s %s  →  %s", request.method, request.url.path, response.status_code)
     return response
 
 

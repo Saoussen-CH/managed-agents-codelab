@@ -4,9 +4,12 @@ import logging
 import os
 import tarfile
 import tempfile
+import warnings
 from pathlib import Path
 
 import requests as http_requests
+
+warnings.filterwarnings("ignore", message="Interactions usage is experimental")
 
 log = logging.getLogger("digest.agent")
 
