@@ -71,6 +71,32 @@ def _build_prompt(sources: list[str]) -> str:
     )
 
 
+def _skill_sources(agents_md: str, skill_md: str) -> list[dict]:
+    """
+    Return inline sources for AGENTS.md and SKILL.md.
+
+    Path convention differs by surface:
+    - Gemini API docs:  `.agents/` (relative, plural)
+    - Vertex AI docs:   `/.agent/` (absolute, singular)
+
+    Mount at both paths so the harness auto-discovers regardless of surface.
+    """
+    targets = (
+        [".agents/AGENTS.md", "/.agent/AGENTS.md"]
+        if _is_vertex()
+        else [".agents/AGENTS.md"]
+    )
+    skill_targets = (
+        [".agents/skills/digest-pdf/SKILL.md", "/.agent/skills/digest-pdf/SKILL.md"]
+        if _is_vertex()
+        else [".agents/skills/digest-pdf/SKILL.md"]
+    )
+    return (
+        [{"type": "inline", "target": t, "content": agents_md} for t in targets]
+        + [{"type": "inline", "target": t, "content": skill_md} for t in skill_targets]
+    )
+
+
 def _base_environment(extra_sources: list[dict] | None = None) -> dict:
     """Vertex network is denied by default — always add allowlist when on Vertex."""
     env: dict = {"type": "remote"}
@@ -187,10 +213,9 @@ def _stream_sync(
             # Vertex: omit environment — the agent's base_environment is used automatically
         else:
             kwargs["system_instruction"] = config["voice"]
-            kwargs["environment"] = _base_environment(extra_sources=[
-                {"type": "inline", "target": ".agents/AGENTS.md", "content": config["agents_md"]},
-                {"type": "inline", "target": ".agents/skills/digest-pdf/SKILL.md", "content": config["skill_md"]},
-            ])
+            kwargs["environment"] = _base_environment(
+                extra_sources=_skill_sources(config["agents_md"], config["skill_md"])
+            )
 
         stream = _create_with_provisioning_retry(client, kwargs, put)
 

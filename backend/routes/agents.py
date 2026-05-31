@@ -4,7 +4,7 @@ import time
 from fastapi import APIRouter, HTTPException
 
 from backend.models import CreateAgentRequest
-from backend.services.agent_client import BASE_AGENT, _is_vertex, _make_client, _reset_client
+from backend.services.agent_client import BASE_AGENT, _is_vertex, _make_client, _reset_client, _skill_sources
 from backend.services.storage import storage
 
 log = logging.getLogger("digest.agents")
@@ -41,10 +41,7 @@ def create_agent(req: CreateAgentRequest):
     # On Vertex, network is denied by default — include allowlist so agent can fetch URLs
     base_env: dict = {
         "type": "remote",
-        "sources": [
-            {"type": "inline", "target": ".agents/AGENTS.md", "content": config.agents_md},
-            {"type": "inline", "target": ".agents/skills/digest-pdf/SKILL.md", "content": config.skill_md},
-        ],
+        "sources": _skill_sources(config.agents_md, config.skill_md),
     }
     if _is_vertex():
         base_env["network"] = {"allowlist": [{"domain": "*"}]}
