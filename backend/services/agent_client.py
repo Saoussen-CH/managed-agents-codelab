@@ -22,7 +22,7 @@ _client_singleton = None
 
 
 def _make_client():
-    """Return a module-level singleton client. Creates it once on first call."""
+    """Return a module-level singleton. Creates once on first call."""
     global _client_singleton
     if _client_singleton is not None:
         return _client_singleton
@@ -34,12 +34,11 @@ def _make_client():
         if not project:
             raise RuntimeError("GOOGLE_CLOUD_PROJECT must be set when USE_VERTEX=true")
         log.info("Creating Vertex AI client — project=%s location=%s", project, location)
-        # Remove API key env vars — Vertex uses ADC (OAuth2), not API keys.
-        # Leaving GEMINI_API_KEY set causes the SDK to send it as an API key
-        # header which Vertex rejects with 401 CREDENTIALS_MISSING.
+        # Strip API key vars — Vertex uses ADC (OAuth2), not API keys.
         for _key in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
             os.environ.pop(_key, None)
-        _client_singleton = genai.Client(vertexai=True, project=project, location=location)
+        # Notebooks use enterprise=True (not vertexai=True)
+        _client_singleton = genai.Client(enterprise=True, project=project, location=location)
     else:
         log.info("Creating Gemini API client")
         _client_singleton = genai.Client()
@@ -62,7 +61,7 @@ def _build_prompt(sources: list[str]) -> str:
 
 
 def _base_environment(extra_sources: list[dict] | None = None) -> dict:
-    """Build environment config. On Vertex, network is denied by default — add allowlist."""
+    """Vertex network is denied by default — always add allowlist when on Vertex."""
     env: dict = {"type": "remote"}
     if extra_sources:
         env["sources"] = extra_sources
@@ -71,27 +70,103 @@ def _base_environment(extra_sources: list[dict] | None = None) -> dict:
     return env
 
 
-def _create_with_provisioning_retry(client, kwargs: dict, put):
+def _parse_events(stream) -> tuple[list[str], str | None, str | None, str | None]:
     """
-    Vertex AI provisions sandboxes on first call. Retry up to 5 times on
-    'Provisioning is in progress' 500 errors with exponential backoff.
+    Iterate stream events. Returns (step_contents, output_text, env_id, interaction_id).
+
+    Handles two event formats:
+    - Gemini API: raw objects with output_text/environment_id/id on stream after iteration
+    - Vertex AI: typed objects (StepStart/StepDelta/InteractionCompletedEvent) —
+                 text in StepDelta.delta.text, IDs in InteractionCompletedEvent.interaction
     """
+    steps: list[str] = []
+    text_parts: list[str] = []
+    env_id = None
+    iid = None
+    last = None
+
+    for event in stream:
+        last = event
+        event_type = getattr(event, "event_type", None)
+
+        if event_type is None:
+            # Gemini API — raw event, stringify for display
+            steps.append(str(event)[:300])
+            continue
+
+        # Vertex typed events
+        if event_type == "step.start":
+            step = getattr(event, "step", None)
+            if step:
+                stype = getattr(step, "type", "")
+                name = getattr(step, "name", "")
+                if stype == "function_call" and name:
+                    steps.append(f"🔧 {name}")
+                elif stype == "model_output":
+                    steps.append("✍️ Writing response…")
+
+        elif event_type == "step.delta":
+            delta = getattr(event, "delta", None)
+            if delta:
+                dtype = getattr(delta, "type", "")
+                if dtype == "text":
+                    chunk = getattr(delta, "text", "")
+                    if chunk:
+                        text_parts.append(chunk)
+                elif dtype == "function_result":
+                    result = getattr(delta, "result", None)
+                    if result:
+                        steps.append(f"  → {str(result)[:200]}")
+                elif dtype == "arguments_delta":
+                    args = getattr(delta, "arguments", "")
+                    if args:
+                        steps.append(f"  {args[:200]}")
+
+        elif event_type == "interaction.completed":
+            interaction = getattr(event, "interaction", None)
+            if interaction:
+                env_id = getattr(interaction, "environment_id", None)
+                iid = getattr(interaction, "id", None)
+                usage = getattr(interaction, "usage", None)
+                if usage:
+                    log.info(
+                        "Usage — input=%s output=%s total=%s",
+                        getattr(usage, "total_input_tokens", "?"),
+                        getattr(usage, "total_output_tokens", "?"),
+                        getattr(usage, "total_tokens", "?"),
+                    )
+
+        elif event_type == "interaction.created":
+            steps.append("⚡ Interaction started")
+
+    # Gemini API: env_id and iid are on the stream object after iteration
+    if not env_id:
+        env_id = getattr(stream, "environment_id", None) or getattr(last, "environment_id", None)
+    if not iid:
+        iid = getattr(stream, "id", None) or getattr(last, "id", None)
+
+    # Output text: Vertex accumulates from DeltaText; Gemini API has output_text on stream
+    output = "".join(text_parts) if text_parts else (
+        getattr(stream, "output_text", None) or getattr(last, "output_text", None)
+    )
+
+    return steps, output, env_id, iid
+
+
+def _create_with_provisioning_retry(client, kwargs: dict, put) -> object:
+    """Retry on Vertex 'Provisioning is in progress' 500 with exponential backoff."""
     import time
 
     max_attempts = 5
-    delay = 5  # seconds, doubles each retry
+    delay = 5
 
     for attempt in range(1, max_attempts + 1):
         try:
             return client.interactions.create(**kwargs)
         except Exception as exc:
-            msg = str(exc)
-            if "Provisioning is in progress" in msg and attempt < max_attempts:
-                log.info(
-                    "Sandbox provisioning in progress — retrying in %ds (attempt %d/%d)",
-                    delay, attempt, max_attempts,
-                )
-                put({"type": "step", "content": f"⏳ Sandbox provisioning… retrying in {delay}s (attempt {attempt}/{max_attempts})"})
+            if "Provisioning is in progress" in str(exc) and attempt < max_attempts:
+                log.info("Sandbox provisioning — retrying in %ds (%d/%d)", delay, attempt, max_attempts)
+                put({"type": "step", "content": f"⏳ Sandbox provisioning… retrying in {delay}s ({attempt}/{max_attempts})"})
                 time.sleep(delay)
                 delay = min(delay * 2, 30)
             else:
@@ -104,20 +179,15 @@ def _stream_sync(
     queue: asyncio.Queue,
     loop: asyncio.AbstractEventLoop,
 ) -> None:
-    """Runs in a thread executor. Pushes SSE event dicts into the asyncio queue."""
+    """Runs in thread executor. Pushes SSE event dicts into the asyncio queue."""
     client = _make_client()
     put = lambda event: loop.call_soon_threadsafe(queue.put_nowait, event)
 
     try:
         prompt = _build_prompt(config["sources"])
-        log.info("Starting interaction — agent=%s sources=%d",
-                 agent_id or BASE_AGENT, len(config["sources"]))
+        log.info("Starting interaction — agent=%s sources=%d", agent_id or BASE_AGENT, len(config["sources"]))
 
-        kwargs: dict = {
-            "agent": agent_id or BASE_AGENT,
-            "input": prompt,
-            "stream": True,
-        }
+        kwargs: dict = {"agent": agent_id or BASE_AGENT, "input": prompt, "stream": True}
 
         if _is_vertex():
             kwargs["background"] = True
@@ -133,20 +203,12 @@ def _stream_sync(
             ])
 
         stream = _create_with_provisioning_retry(client, kwargs, put)
+        steps, output, env_id, iid = _parse_events(stream)
 
-        last = None
-        step_count = 0
-        for event in stream:
-            last = event
-            step_count += 1
-            log.debug("Step %d: %s", step_count, str(event)[:120])
-            put({"type": "step", "content": str(event)})
+        for step in steps:
+            put({"type": "step", "content": step})
 
-        env_id = getattr(stream, "environment_id", None) or getattr(last, "environment_id", None)
-        iid = getattr(stream, "id", None) or getattr(last, "id", None)
-        output = getattr(stream, "output_text", None) or getattr(last, "output_text", None)
-
-        log.info("Interaction complete — steps=%d env=%s interaction=%s", step_count, env_id, iid)
+        log.info("Interaction complete — env=%s interaction=%s", env_id, iid)
         put({"type": "output", "content": output or "", "environment_id": env_id, "interaction_id": iid})
         put({"type": "done", "pdf_available": True})
 
@@ -165,7 +227,7 @@ def _refine_sync(
     queue: asyncio.Queue,
     loop: asyncio.AbstractEventLoop,
 ) -> None:
-    """Runs in a thread executor. Streams a refinement turn."""
+    """Runs in thread executor. Streams a refinement turn."""
     client = _make_client()
     put = lambda event: loop.call_soon_threadsafe(queue.put_nowait, event)
 
@@ -184,19 +246,12 @@ def _refine_sync(
             kwargs["store"] = True
 
         stream = client.interactions.create(**kwargs)
+        steps, output, _, iid = _parse_events(stream)
 
-        last = None
-        step_count = 0
-        for event in stream:
-            last = event
-            step_count += 1
-            log.debug("Refine step %d: %s", step_count, str(event)[:120])
-            put({"type": "step", "content": str(event)})
+        for step in steps:
+            put({"type": "step", "content": step})
 
-        output = getattr(stream, "output_text", None) or getattr(last, "output_text", None)
-        iid = getattr(stream, "id", None) or getattr(last, "id", None)
-
-        log.info("Refinement complete — steps=%d interaction=%s", step_count, iid)
+        log.info("Refinement complete — interaction=%s", iid)
         put({"type": "output", "content": output or "", "interaction_id": iid})
         put({"type": "done", "pdf_available": True})
 
@@ -208,7 +263,7 @@ def _refine_sync(
 
 
 def download_pdf(environment_id: str) -> bytes:
-    """Download the PDF from the environment snapshot and return its bytes."""
+    """Download the PDF from the environment snapshot."""
     log.info("Downloading PDF snapshot — env=%s surface=%s",
              environment_id, "Vertex AI" if _is_vertex() else "Gemini API")
 
@@ -216,12 +271,9 @@ def download_pdf(environment_id: str) -> bytes:
         tar_path = Path(tmp) / "snapshot.tar"
 
         if _is_vertex():
-            # Vertex: use gcloud to get a token and hit the aiplatform endpoint
             project = os.environ["GOOGLE_CLOUD_PROJECT"]
             location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
-            token = subprocess.check_output(
-                ["gcloud", "auth", "print-access-token"], text=True
-            ).strip()
+            token = subprocess.check_output(["gcloud", "auth", "print-access-token"], text=True).strip()
             r = http_requests.get(
                 f"https://aiplatform.googleapis.com/v1beta1/projects/{project}"
                 f"/locations/{location}/files/environment-{environment_id}:download",
