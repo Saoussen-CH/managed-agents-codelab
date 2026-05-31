@@ -5,6 +5,7 @@ import os
 import subprocess
 import tarfile
 import tempfile
+import threading
 from pathlib import Path
 
 import requests as http_requests
@@ -19,28 +20,32 @@ def _is_vertex() -> bool:
 
 
 _client_singleton = None
+_client_lock = threading.Lock()
 
 
 def _make_client():
-    """Return a module-level singleton. Creates once on first call."""
+    """Return a thread-safe module-level singleton. Creates once on first call."""
     global _client_singleton
     if _client_singleton is not None:
         return _client_singleton
 
-    from google import genai
-    if _is_vertex():
-        project = os.environ.get("GOOGLE_CLOUD_PROJECT")
-        location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
-        if not project:
-            raise RuntimeError("GOOGLE_CLOUD_PROJECT must be set when USE_VERTEX=true")
-        log.info("Creating Vertex AI client — project=%s location=%s", project, location)
-        # Strip API key vars — Vertex uses ADC (OAuth2), not API keys.
-        for _key in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
-            os.environ.pop(_key, None)
-        _client_singleton = genai.Client(enterprise=True, project=project, location=location)
-    else:
-        log.info("Creating Gemini API client")
-        _client_singleton = genai.Client()
+    with _client_lock:
+        if _client_singleton is not None:  # double-checked — another thread may have created it
+            return _client_singleton
+
+        from google import genai
+        if _is_vertex():
+            project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+            location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
+            if not project:
+                raise RuntimeError("GOOGLE_CLOUD_PROJECT must be set when USE_VERTEX=true")
+            log.info("Creating Vertex AI client — project=%s location=%s", project, location)
+            for _key in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+                os.environ.pop(_key, None)
+            _client_singleton = genai.Client(enterprise=True, project=project, location=location)
+        else:
+            log.info("Creating Gemini API client")
+            _client_singleton = genai.Client()
 
     return _client_singleton
 
