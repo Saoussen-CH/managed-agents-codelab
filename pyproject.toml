@@ -1,0 +1,9 @@
+[project]
+name = "managedagents"
+version = "0.1.0"
+description = "Daily tech digest agent — Google Managed Agents API workshop"
+requires-python = ">=3.10"
+dependencies = [
+    "google-genai",
+    "requests",
+]
