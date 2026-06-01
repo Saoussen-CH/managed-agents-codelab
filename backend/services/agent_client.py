@@ -131,6 +131,21 @@ def _handle_event(event, put, text_parts: list[str]) -> tuple[str | None, str | 
             name = getattr(step, "name", "")
             if stype == "function_call" and name:
                 put({"type": "step", "content": f"🔧 {name}"})
+            elif stype == "mcp_server_tool_call" and name:
+                server = getattr(step, "server_name", "")
+                put({"type": "step", "content": f"🔧 {name} (MCP: {server})" if server else f"🔧 {name}"})
+            elif stype == "code_execution_call":
+                args = getattr(step, "arguments", None)
+                code_preview = getattr(args, "code", "")[:80] if args else ""
+                put({"type": "step", "content": f"🖥️ Running code… {code_preview}"})
+            elif stype == "url_context_call":
+                args = getattr(step, "arguments", None)
+                urls = getattr(args, "urls", []) if args else []
+                put({"type": "step", "content": f"🌐 Fetching {urls[0] if urls else 'URL'}…"})
+            elif stype == "google_search_call":
+                args = getattr(step, "arguments", None)
+                queries = getattr(args, "queries", []) if args else []
+                put({"type": "step", "content": f"🔍 Searching: {queries[0] if queries else '…'}"})
             elif stype == "model_output":
                 put({"type": "step", "content": "✍️ Writing response…"})
 
@@ -139,14 +154,19 @@ def _handle_event(event, put, text_parts: list[str]) -> tuple[str | None, str | 
         if delta:
             dtype = getattr(delta, "type", "")
             if dtype == "text":
-                # Accumulate — don't push individual chunks (too noisy)
+                # Accumulate text — don't push individual chunks (too noisy)
                 text_parts.append(getattr(delta, "text", ""))
             elif dtype == "function_result":
                 result = getattr(delta, "result", None)
                 if result:
                     put({"type": "step", "content": f"  → {str(result)[:300]}"})
+            elif dtype == "code_execution_result":
+                result = getattr(delta, "result", "")
+                if result:
+                    put({"type": "step", "content": f"  📤 {str(result)[:300]}"})
             elif dtype == "arguments_delta":
-                args = getattr(delta, "arguments", "")
+                # SDK exposes as delta.arguments (partial_arguments in REST JSON)
+                args = getattr(delta, "arguments", "") or getattr(delta, "partial_arguments", "")
                 if args:
                     put({"type": "step", "content": f"  {args[:300]}"})
 
@@ -235,14 +255,16 @@ def _stream_sync(
             if i:
                 iid = i
 
-        # Gemini API fallbacks — these attributes live on the stream object after iteration
+        # env_id / iid come from InteractionCompletedEvent (in _handle_event).
+        # Fallback: some SDK versions expose these on the stream object after iteration.
         if not env_id:
             env_id = getattr(stream, "environment_id", None) or (getattr(last, "environment_id", None) if last else None)
         if not iid:
             iid = getattr(stream, "id", None) or (getattr(last, "id", None) if last else None)
-        output = "".join(text_parts) if text_parts else (
-            getattr(stream, "output_text", None) or (getattr(last, "output_text", None) if last else None)
-        )
+
+        # Per API reference: InteractionCompletedEvent carries EMPTY outputs.
+        # All text comes from StepDelta(type="text") events accumulated in text_parts.
+        output = "".join(text_parts) if text_parts else None
 
         log.info("Interaction complete — steps=%d env=%s interaction=%s", step_count, env_id, iid)
         put({"type": "output", "content": output or "", "environment_id": env_id, "interaction_id": iid})
@@ -299,9 +321,7 @@ def _refine_sync(
 
         if not iid:
             iid = getattr(stream, "id", None) or (getattr(last, "id", None) if last else None)
-        output = "".join(text_parts) if text_parts else (
-            getattr(stream, "output_text", None) or (getattr(last, "output_text", None) if last else None)
-        )
+        output = "".join(text_parts) if text_parts else None
 
         log.info("Refinement complete — steps=%d interaction=%s", step_count, iid)
         put({"type": "output", "content": output or "", "interaction_id": iid})
