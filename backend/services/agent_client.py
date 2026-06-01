@@ -365,25 +365,50 @@ def download_pdf(environment_id: str) -> bytes:
         tar_path = Path(tmp) / "snapshot.tar"
 
         if _is_vertex():
-            project = os.environ["GOOGLE_CLOUD_PROJECT"]
-            location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
-            token = subprocess.check_output(["gcloud", "auth", "print-access-token"], text=True).strip()
+            token = subprocess.check_output(
+                ["gcloud", "auth", "print-access-token"], text=True
+            ).strip()
+            # Try the Gemini API endpoint first (same underlying storage, works with bearer token)
+            url = f"https://generativelanguage.googleapis.com/v1beta/files/environment-{environment_id}:download"
+            log.info("Trying Gemini API download endpoint for Vertex env: %s", url)
             r = http_requests.get(
-                f"https://aiplatform.googleapis.com/v1beta1/projects/{project}"
-                f"/locations/{location}/files/environment-{environment_id}:download",
+                url,
                 params={"alt": "media"},
                 headers={"Authorization": f"Bearer {token}"},
                 allow_redirects=True,
             )
+            if r.status_code == 404:
+                # Fallback: try aiplatform endpoint
+                project = os.environ["GOOGLE_CLOUD_PROJECT"]
+                location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
+                url2 = (
+                    f"https://aiplatform.googleapis.com/v1beta1/projects/{project}"
+                    f"/locations/{location}/files/environment-{environment_id}:download"
+                )
+                log.info("Falling back to aiplatform endpoint: %s", url2)
+                r = http_requests.get(
+                    url2,
+                    params={"alt": "media"},
+                    headers={"Authorization": f"Bearer {token}"},
+                    allow_redirects=True,
+                )
+            log.info("Download response — status=%d content-type=%s size=%d",
+                     r.status_code, r.headers.get("content-type", "?"), len(r.content))
         else:
             api_key = os.environ["GEMINI_API_KEY"]
+            url = f"https://generativelanguage.googleapis.com/v1beta/files/environment-{environment_id}:download"
+            log.info("Downloading from Gemini API: %s", url)
             r = http_requests.get(
-                f"https://generativelanguage.googleapis.com/v1beta/files/environment-{environment_id}:download",
+                url,
                 params={"alt": "media"},
                 headers={"x-goog-api-key": api_key},
                 allow_redirects=True,
             )
+            log.info("Download response — status=%d content-type=%s size=%d",
+                     r.status_code, r.headers.get("content-type", "?"), len(r.content))
 
+        if not r.ok:
+            log.error("Download failed — status=%d body=%s", r.status_code, r.text[:500])
         r.raise_for_status()
         tar_path.write_bytes(r.content)
 
