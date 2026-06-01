@@ -20,17 +20,17 @@ def _parse_description(skill_md: str) -> str:
 
 
 def _get_client(project: str):
-    import vertexai
-    log.debug("Initialising vertexai — project=%s location=%s", project, SKILL_LOCATION)
-    vertexai.init(project=project, location=SKILL_LOCATION)
-    client = vertexai.Client(project=project, location=SKILL_LOCATION)
-    log.debug("vertexai.Client type=%s has_skills=%s", type(client).__name__, hasattr(client, "skills"))
-    return client
+    # Use agentplatform.Client as documented for google-cloud-aiplatform >= 1.154.0
+    import agentplatform
+    log.debug("Creating agentplatform.Client — project=%s location=%s", project, SKILL_LOCATION)
+    return agentplatform.Client(project=project, location=SKILL_LOCATION)
 
 
 def publish(skill_md: str, project: str) -> str:
     """
     Upload SKILL.md to the Vertex AI Skill Registry.
+    Uses agentplatform.Client (google-cloud-aiplatform >= 1.154.0).
+    skill_id is a top-level parameter in this version.
     Returns the skill resource name.
     """
     log.info("Starting skill publish — project=%s location=%s skill_id=%s", project, SKILL_LOCATION, SKILL_ID)
@@ -38,7 +38,7 @@ def publish(skill_md: str, project: str) -> str:
     name = _resource_name(project)
     log.info("Skill resource name: %s", name)
 
-    # Delete existing skill if present
+    # Delete existing skill first (skill IDs are reserved for 24h after deletion)
     try:
         log.debug("Attempting to delete existing skill: %s", name)
         client.skills.delete(name=name)
@@ -51,39 +51,33 @@ def publish(skill_md: str, project: str) -> str:
         skill_dir.mkdir()
         skill_md_path = skill_dir / "SKILL.md"
         skill_md_path.write_text(skill_md, encoding="utf-8")
-        log.debug("SKILL.md written to: %s (%d bytes)", skill_md_path, skill_md_path.stat().st_size)
+        log.debug("SKILL.md written — %d bytes at %s", skill_md_path.stat().st_size, skill_md_path)
 
         description = _parse_description(skill_md)
-        log.info("Calling client.skills.create — display_name=digest-pdf description=%s", description[:80])
+        log.info("Calling client.skills.create — skill_id=%s display_name=digest-pdf", SKILL_ID)
         log.debug("  local_path=%s", str(skill_dir))
-        log.debug("  skill_id=%s", SKILL_ID)
 
         try:
+            # >= 1.154.0 API: skill_id is a top-level parameter, not inside config
             skill = client.skills.create(
+                skill_id=SKILL_ID,
                 display_name="digest-pdf",
                 description=description,
-                config={
-                    "skill_id": SKILL_ID,
-                    "local_path": str(skill_dir),
-                },
+                config={"local_path": str(skill_dir)},
             )
         except Exception as exc:
             log.error("client.skills.create failed: %s", exc)
-            log.error("  type: %s", type(exc).__name__)
-            log.error("  project: %s", project)
-            log.error("  location: %s", SKILL_LOCATION)
-            log.error("  resource: %s", name)
+            log.error("  type=%s project=%s location=%s", type(exc).__name__, project, SKILL_LOCATION)
             raise
 
     resource = getattr(skill, "name", name)
     state = getattr(skill, "state", "unknown")
     log.info("Skill published — name=%s state=%s", resource, state)
-    log.debug("Full skill object: %s", skill)
     return resource
 
 
 def unpublish(project: str) -> None:
-    log.info("Deleting skill from registry — project=%s skill=%s", project, SKILL_ID)
+    log.info("Deleting skill — project=%s skill=%s", project, SKILL_ID)
     client = _get_client(project)
     try:
         client.skills.delete(name=_resource_name(project))
