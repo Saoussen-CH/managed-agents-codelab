@@ -35,8 +35,20 @@ async def publish_skill():
             None, skill_registry.publish, config.skill_md, project
         )
     except Exception as exc:
-        log.error("Skill publish failed: %s", exc)
-        raise HTTPException(status_code=502, detail=str(exc))
+        msg = str(exc)
+        log.error("Skill publish failed: %s", msg)
+        # Surface a clear message for the common "project not enrolled" error
+        if "The project doesn't exist" in msg:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Skill Registry is not available for this project. "
+                    "The feature requires separate enrollment — contact Google Cloud support "
+                    "or check console.cloud.google.com/agent-platform. "
+                    "Inline skills work identically without the registry."
+                ),
+            )
+        raise HTTPException(status_code=502, detail=msg)
 
     config.skill_registry_name = name
     storage.write_config(config)
