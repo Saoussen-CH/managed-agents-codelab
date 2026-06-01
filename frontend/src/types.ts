@@ -3,6 +3,12 @@ export interface AppConfig {
   voice: string;
   agents_md: string;
   skill_md: string;
+  skill_registry_name: string | null;
+}
+
+export interface AppInfo {
+  surface: "vertex" | "gemini";
+  project: string | null;
 }
 
 export type RunStatus = "running" | "completed" | "failed";

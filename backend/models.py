@@ -56,6 +56,8 @@ class AppConfig(BaseModel):
     voice: str = DEFAULT_VOICE
     agents_md: str = DEFAULT_AGENTS_MD
     skill_md: str = DEFAULT_SKILL_MD
+    # Set when the skill has been published to the Vertex AI Skill Registry
+    skill_registry_name: Optional[str] = None
 
 
 class RunRecord(BaseModel):

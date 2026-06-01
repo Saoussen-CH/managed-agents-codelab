@@ -41,10 +41,17 @@ def create_agent(req: CreateAgentRequest):
     # On Vertex, network is denied by default — include allowlist so agent can fetch URLs
     base_env: dict = {
         "type": "remote",
-        "sources": _skill_sources(config.agents_md, config.skill_md),
+        "sources": _skill_sources(
+            config.agents_md,
+            config.skill_md,
+            config.skill_registry_name,  # uses Skill Registry if published
+        ),
     }
     if _is_vertex():
         base_env["network"] = {"allowlist": [{"domain": "*"}]}
+
+    source_type = "skill_registry" if (config.skill_registry_name and _is_vertex()) else "inline"
+    log.info("Agent sources — type=%s registry=%s", source_type, config.skill_registry_name)
 
     agent = _get_client().agents.create(
         id=req.id,

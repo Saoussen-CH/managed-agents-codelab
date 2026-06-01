@@ -71,20 +71,31 @@ def _build_prompt(sources: list[str]) -> str:
     )
 
 
-def _skill_sources(agents_md: str, skill_md: str) -> list[dict]:
+def _skill_sources(
+    agents_md: str,
+    skill_md: str,
+    skill_registry_name: str | None = None,
+) -> list[dict]:
     """
-    Return inline sources for AGENTS.md and SKILL.md.
+    Return environment sources for AGENTS.md and SKILL.md.
 
-    Path convention differs by surface:
-    - Gemini API docs:  `.agents/` (relative, plural)
-    - Vertex AI docs:   `/.agent/` (absolute, singular)
+    On Vertex with a published Skill Registry entry:
+      - AGENTS.md → inline (agent behaviour, not a skill)
+      - SKILL.md  → skill_registry source (proper Vertex pattern)
 
-    Mount at both paths so the harness auto-discovers regardless of surface.
+    Otherwise (Gemini API or not yet published):
+      - Both inline; mount at both path conventions so the harness
+        auto-discovers regardless of surface.
     """
-    targets = (
-        [".agents/AGENTS.md", "/.agent/AGENTS.md"]
-        if _is_vertex()
-        else [".agents/AGENTS.md"]
+    if _is_vertex() and skill_registry_name:
+        return [
+            {"type": "inline", "target": "/.agent/AGENTS.md", "content": agents_md},
+            {"type": "skill_registry", "source": skill_registry_name, "target": "/.agent/skills"},
+        ]
+
+    # Inline fallback
+    agent_targets = (
+        [".agents/AGENTS.md", "/.agent/AGENTS.md"] if _is_vertex() else [".agents/AGENTS.md"]
     )
     skill_targets = (
         [".agents/skills/digest-pdf/SKILL.md", "/.agent/skills/digest-pdf/SKILL.md"]
@@ -92,7 +103,7 @@ def _skill_sources(agents_md: str, skill_md: str) -> list[dict]:
         else [".agents/skills/digest-pdf/SKILL.md"]
     )
     return (
-        [{"type": "inline", "target": t, "content": agents_md} for t in targets]
+        [{"type": "inline", "target": t, "content": agents_md} for t in agent_targets]
         + [{"type": "inline", "target": t, "content": skill_md} for t in skill_targets]
     )
 
@@ -228,13 +239,16 @@ def _stream_sync(
 
         if agent_id:
             if not _is_vertex():
-                # Gemini API: "remote" forks a fresh sandbox from the agent's base_environment
                 kwargs["environment"] = "remote"
-            # Vertex: omit environment — the agent's base_environment is used automatically
+            # Vertex: omit environment — agent's base_environment used automatically
         else:
             kwargs["system_instruction"] = config["voice"]
             kwargs["environment"] = _base_environment(
-                extra_sources=_skill_sources(config["agents_md"], config["skill_md"])
+                extra_sources=_skill_sources(
+                    config["agents_md"],
+                    config["skill_md"],
+                    config.get("skill_registry_name"),
+                )
             )
 
         stream = _create_with_provisioning_retry(client, kwargs, put)

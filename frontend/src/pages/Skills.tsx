@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getConfig, updateConfig } from "../api";
+import { getConfig, updateConfig, getInfo, publishSkill, unpublishSkill } from "../api";
 
 function parseFrontmatter(md: string) {
   const match = md.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
@@ -13,7 +13,6 @@ function parseFrontmatter(md: string) {
 }
 
 function buildFrontmatter(name: string, description: string, body: string) {
-  // Strip newlines from single-line fields to prevent broken YAML
   const safeName = name.replace(/[\r\n]/g, " ").trim();
   const safeDesc = description.replace(/[\r\n]/g, " ").trim();
   return `---\nname: ${safeName}\ndescription: ${safeDesc}\n---\n\n${body}`;
@@ -22,6 +21,7 @@ function buildFrontmatter(name: string, description: string, body: string) {
 export default function Skills() {
   const qc = useQueryClient();
   const { data: config } = useQuery({ queryKey: ["config"], queryFn: getConfig });
+  const { data: info } = useQuery({ queryKey: ["info"], queryFn: getInfo });
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [body, setBody] = useState("");
@@ -37,15 +37,31 @@ export default function Skills() {
     }
   }, [config, initialised]);
 
-  const mutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: () => updateConfig({ skill_md: buildFrontmatter(name, description, body) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["config"] }),
   });
+
+  const publishMutation = useMutation({
+    mutationFn: publishSkill,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["config"] }),
+  });
+
+  const unpublishMutation = useMutation({
+    mutationFn: unpublishSkill,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["config"] });
+    },
+  });
+
+  const isVertex = info?.surface === "vertex";
+  const registryName = config?.skill_registry_name;
 
   return (
     <div className="max-w-xl space-y-4">
       <h1 className="text-2xl font-bold text-gray-900">Skills</h1>
       <p className="text-sm text-gray-500">The SKILL.md that tells the agent how to build the PDF.</p>
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Name</label>
@@ -60,22 +76,82 @@ export default function Skills() {
             className="w-full border rounded-lg px-3 py-2 text-sm" />
         </div>
       </div>
+
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
         rows={14}
-        placeholder="# Digest PDF Skill&#10;&#10;When the user asks for a PDF, follow this exact procedure:&#10;&#10;1. If reportlab isn't installed, run `pip install reportlab`.&#10;2. Build the PDF at /workspace/digest.pdf using ReportLab."
+        placeholder="# Digest PDF Skill&#10;&#10;When the user asks for a PDF..."
         className="w-full border rounded-lg px-3 py-2 text-sm font-mono resize-y"
       />
+
       <div className="flex justify-end">
         <button
-          onClick={() => mutation.mutate()}
-          disabled={mutation.isPending}
+          onClick={() => saveMutation.mutate()}
+          disabled={saveMutation.isPending}
           className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
         >
-          {mutation.isPending ? "Saving…" : "Save"}
+          {saveMutation.isPending ? "Saving…" : "Save"}
         </button>
       </div>
+
+      {/* Skill Registry — Vertex mode only */}
+      {isVertex && (
+        <div className="border rounded-xl p-4 space-y-3 bg-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-800">Skill Registry</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Publish to Vertex AI Skill Registry for proper Vertex-native skill discovery.
+              </p>
+            </div>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+              registryName ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+            }`}>
+              {registryName ? "Published" : "Not published"}
+            </span>
+          </div>
+
+          {registryName && (
+            <p className="text-xs font-mono text-gray-500 break-all bg-gray-50 rounded p-2">
+              {registryName}
+            </p>
+          )}
+
+          {publishMutation.isError && (
+            <p className="text-xs text-red-500">
+              {String((publishMutation.error as Error)?.message ?? "Publish failed")}
+            </p>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => publishMutation.mutate()}
+              disabled={publishMutation.isPending}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+            >
+              {publishMutation.isPending
+                ? "Publishing… (may take ~30s)"
+                : registryName
+                ? "Re-publish"
+                : "Publish to Registry"}
+            </button>
+            {registryName && (
+              <button
+                onClick={() => unpublishMutation.mutate()}
+                disabled={unpublishMutation.isPending}
+                className="text-sm text-red-400 hover:text-red-600 px-3 py-2 transition-colors"
+              >
+                {unpublishMutation.isPending ? "…" : "Unpublish"}
+              </button>
+            )}
+          </div>
+
+          <p className="text-xs text-gray-400">
+            Save your skill content first, then publish. Agents created after publishing will use the registry skill instead of inline content.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

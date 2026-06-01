@@ -1,4 +1,4 @@
-import type { AppConfig, AgentRecord, RunRecord } from "./types";
+import type { AppConfig, AgentRecord, RunRecord, AppInfo } from "./types";
 
 const BASE = "/api";
 
@@ -12,6 +12,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+export const getInfo = () => request<AppInfo>("/info");
 export const getConfig = () => request<AppConfig>("/config");
 export const updateConfig = (updates: Partial<AppConfig>) =>
   request<AppConfig>("/config", { method: "PUT", body: JSON.stringify(updates) });
@@ -36,3 +37,11 @@ export const startRefine = (run_id: string, message: string) =>
     body: JSON.stringify({ message }),
   });
 export const getPdfUrl = (run_id: string) => `${BASE}/runs/${run_id}/pdf`;
+
+// Skill Registry (Vertex only)
+export const publishSkill = () =>
+  request<{ skill_registry_name: string }>("/skills/publish", { method: "POST" });
+export const getSkillStatus = () =>
+  request<{ published: boolean; name: string | null; state: string | null }>("/skills/status");
+export const unpublishSkill = () =>
+  request<void>("/skills/unpublish", { method: "DELETE" });
