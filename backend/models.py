@@ -58,6 +58,8 @@ class AppConfig(BaseModel):
     skill_md: str = DEFAULT_SKILL_MD
     # Set when the skill has been published to the Vertex AI Skill Registry
     skill_registry_name: Optional[str] = None
+    # Set when SKILL.md has been uploaded to GCS (e.g. "gs://managed-agents/skills/digest-pdf")
+    gcs_skill_path: Optional[str] = None
 
 
 class RunRecord(BaseModel):

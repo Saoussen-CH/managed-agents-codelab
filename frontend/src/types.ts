@@ -4,6 +4,7 @@ export interface AppConfig {
   agents_md: string;
   skill_md: string;
   skill_registry_name: string | null;
+  gcs_skill_path: string | null;
 }
 
 export interface AppInfo {

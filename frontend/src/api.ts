@@ -38,10 +38,16 @@ export const startRefine = (run_id: string, message: string) =>
   });
 export const getPdfUrl = (run_id: string) => `${BASE}/runs/${run_id}/pdf`;
 
-// Skill Registry (Vertex only)
+// Skill — GCS (Vertex only, recommended)
+export const uploadSkillToGcs = () =>
+  request<{ gcs_skill_path: string }>("/skills/gcs/upload", { method: "POST" });
+export const getGcsStatus = () =>
+  request<{ uploaded: boolean; gcs_skill_path: string | null }>("/skills/gcs/status");
+export const removeSkillFromGcs = () =>
+  request<void>("/skills/gcs/remove", { method: "DELETE" });
+
+// Skill Registry (Vertex only, requires project enrollment)
 export const publishSkill = () =>
   request<{ skill_registry_name: string }>("/skills/publish", { method: "POST" });
-export const getSkillStatus = () =>
-  request<{ published: boolean; name: string | null; state: string | null }>("/skills/status");
 export const unpublishSkill = () =>
   request<void>("/skills/unpublish", { method: "DELETE" });

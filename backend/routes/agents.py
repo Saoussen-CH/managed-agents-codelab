@@ -44,7 +44,8 @@ def create_agent(req: CreateAgentRequest):
         "sources": _skill_sources(
             config.agents_md,
             config.skill_md,
-            config.skill_registry_name,  # uses Skill Registry if published
+            config.skill_registry_name,
+            config.gcs_skill_path,        # GCS takes priority over Skill Registry
         ),
     }
     if _is_vertex():

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getConfig, updateConfig, getInfo, publishSkill, unpublishSkill } from "../api";
+import { getConfig, updateConfig, getInfo, uploadSkillToGcs, removeSkillFromGcs } from "../api";
 
 function parseFrontmatter(md: string) {
   const match = md.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
@@ -26,6 +26,7 @@ export default function Skills() {
   const [description, setDescription] = useState("");
   const [body, setBody] = useState("");
   const [initialised, setInitialised] = useState(false);
+  const [removeMsg, setRemoveMsg] = useState("");
 
   useEffect(() => {
     if (config && !initialised) {
@@ -42,24 +43,22 @@ export default function Skills() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["config"] }),
   });
 
-  const publishMutation = useMutation({
-    mutationFn: publishSkill,
+  const uploadGcsMutation = useMutation({
+    mutationFn: uploadSkillToGcs,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["config"] }),
   });
 
-  const [unpublishDone, setUnpublishDone] = useState(false);
-
-  const unpublishMutation = useMutation({
-    mutationFn: unpublishSkill,
+  const removeGcsMutation = useMutation({
+    mutationFn: removeSkillFromGcs,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["config"] });
-      setUnpublishDone(true);
-      setTimeout(() => setUnpublishDone(false), 3000);
+      setRemoveMsg("Skill removed from GCS.");
+      setTimeout(() => setRemoveMsg(""), 3000);
     },
   });
 
   const isVertex = info?.surface === "vertex";
-  const registryName = config?.skill_registry_name;
+  const gcsPath = config?.gcs_skill_path;
 
   return (
     <div className="max-w-xl space-y-4">
@@ -99,73 +98,68 @@ export default function Skills() {
         </button>
       </div>
 
-      {/* Skill Registry — Vertex mode only. Feature may not be available on all projects (Pre-GA enrollment required). */}
+      {/* GCS Upload — Vertex mode only */}
       {isVertex && (
         <div className="border rounded-xl p-4 space-y-3 bg-white">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-gray-800">Skill Registry</h2>
+              <h2 className="text-sm font-semibold text-gray-800">Upload to GCS</h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                Publish to Vertex AI Skill Registry for proper Vertex-native skill discovery.
+                Store SKILL.md in Google Cloud Storage so the agent loads it from GCS instead of inline.
               </p>
             </div>
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-              registryName ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+              gcsPath ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
             }`}>
-              {registryName ? "Published" : "Not published"}
+              {gcsPath ? "Uploaded" : "Not uploaded"}
             </span>
           </div>
 
-          {registryName && (
+          {gcsPath && (
             <p className="text-xs font-mono text-gray-500 break-all bg-gray-50 rounded p-2">
-              {registryName}
+              {gcsPath}
             </p>
           )}
 
-          {publishMutation.isError && (
+          {uploadGcsMutation.isError && (
             <p className="text-xs text-red-500">
-              {publishMutation.error instanceof Error
-                ? publishMutation.error.message
-                : String(publishMutation.error ?? "Publish failed")}
+              {uploadGcsMutation.error instanceof Error
+                ? uploadGcsMutation.error.message
+                : String(uploadGcsMutation.error ?? "Upload failed")}
             </p>
           )}
-          {unpublishMutation.isError && (
+          {removeGcsMutation.isError && (
             <p className="text-xs text-red-500">
-              {unpublishMutation.error instanceof Error
-                ? unpublishMutation.error.message
-                : String(unpublishMutation.error ?? "Unpublish failed")}
+              {removeGcsMutation.error instanceof Error
+                ? removeGcsMutation.error.message
+                : String(removeGcsMutation.error ?? "Remove failed")}
             </p>
           )}
-          {unpublishDone && (
-            <p className="text-xs text-green-600">Skill removed from registry.</p>
-          )}
+          {removeMsg && <p className="text-xs text-green-600">{removeMsg}</p>}
 
           <div className="flex gap-2">
             <button
-              onClick={() => publishMutation.mutate()}
-              disabled={publishMutation.isPending}
+              onClick={() => uploadGcsMutation.mutate()}
+              disabled={uploadGcsMutation.isPending}
               className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
             >
-              {publishMutation.isPending
-                ? "Publishing… (may take ~30s)"
-                : registryName
-                ? "Re-publish"
-                : "Publish to Registry"}
+              {uploadGcsMutation.isPending
+                ? "Uploading…"
+                : gcsPath ? "Re-upload to GCS" : "Upload to GCS"}
             </button>
-            {registryName && (
+            {gcsPath && (
               <button
-                onClick={() => unpublishMutation.mutate()}
-                disabled={unpublishMutation.isPending}
+                onClick={() => removeGcsMutation.mutate()}
+                disabled={removeGcsMutation.isPending}
                 className="text-sm text-red-400 hover:text-red-600 px-3 py-2 transition-colors"
               >
-                {unpublishMutation.isPending ? "…" : "Unpublish"}
+                {removeGcsMutation.isPending ? "…" : "Remove"}
               </button>
             )}
           </div>
 
           <p className="text-xs text-gray-400">
-            Save your skill content first, then publish. Agents created after publishing will use the registry skill instead of inline content.
-            {" "}If you see a "project doesn't exist" error, the Skill Registry requires separate Pre-GA enrollment — inline skills work identically without it.
+            Save your skill content first, then upload. Agents created after uploading will load the skill from GCS instead of passing it inline on every call.
           </p>
         </div>
       )}

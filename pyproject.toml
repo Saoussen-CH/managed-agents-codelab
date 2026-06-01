@@ -12,4 +12,5 @@ dependencies = [
     "aiofiles>=23.2.0",
     "python-dotenv>=1.2.2",
     "google-cloud-aiplatform>=1.152.0",
+    "google-cloud-storage>=3.10.1",
 ]

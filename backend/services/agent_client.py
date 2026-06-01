@@ -75,31 +75,35 @@ def _skill_sources(
     agents_md: str,
     skill_md: str,
     skill_registry_name: str | None = None,
+    gcs_skill_path: str | None = None,
 ) -> list[dict]:
     """
     Return environment sources for AGENTS.md and SKILL.md.
 
-    On Vertex with a published Skill Registry entry:
-      - AGENTS.md → inline (agent behaviour, not a skill)
-      - SKILL.md  → skill_registry source (proper Vertex pattern)
+    Priority on Vertex:
+      1. GCS source  (if gcs_skill_path is set)
+      2. Skill Registry (if skill_registry_name is set)
+      3. Inline fallback
 
-    Otherwise (Gemini API or not yet published):
-      - Both inline; mount at both path conventions so the harness
-        auto-discovers regardless of surface.
+    Gemini API: always inline (GCS/Registry not needed, no size limit issues).
     """
+    if _is_vertex() and gcs_skill_path:
+        return [
+            {"type": "inline", "target": "/.agent/AGENTS.md", "content": agents_md},
+            {"type": "gcs", "source": gcs_skill_path, "target": "/.agent/skills/digest-pdf"},
+        ]
+
     if _is_vertex() and skill_registry_name:
         return [
             {"type": "inline", "target": "/.agent/AGENTS.md", "content": agents_md},
-            # Trailing slash matches the docs example: "target": "/.agent/skills/"
             {"type": "skill_registry", "source": skill_registry_name, "target": "/.agent/skills/"},
         ]
 
-    # Inline fallback
+    # Inline fallback (Gemini API, or Vertex with no GCS/registry configured)
     agent_targets = (
         [".agents/AGENTS.md", "/.agent/AGENTS.md"] if _is_vertex() else [".agents/AGENTS.md"]
     )
     skill_targets = (
-        # Vertex uses .agent/ (singular). Both paths attempted for discovery.
         [".agents/skills/digest-pdf/SKILL.md", "/.agent/skills/digest-pdf/SKILL.md"]
         if _is_vertex()
         else [".agents/skills/digest-pdf/SKILL.md"]
@@ -250,6 +254,7 @@ def _stream_sync(
                     config["agents_md"],
                     config["skill_md"],
                     config.get("skill_registry_name"),
+                    config.get("gcs_skill_path"),
                 )
             )
 
