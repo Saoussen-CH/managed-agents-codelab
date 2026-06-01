@@ -7,3 +7,4 @@ snapshot.tar
 .venv/
 .claude/
 data/
+refs/
