@@ -15,9 +15,23 @@ def _bucket_name() -> str:
     return name
 
 
+def _ensure_bucket(client, bucket_name: str) -> None:
+    """Create the bucket if it doesn't exist."""
+    from google.cloud.exceptions import Conflict
+    b = client.bucket(bucket_name)
+    if not b.exists():
+        log.info("Bucket %s not found — creating it", bucket_name)
+        try:
+            project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+            client.create_bucket(bucket_name, project=project)
+            log.info("Bucket created: gs://%s", bucket_name)
+        except Conflict:
+            log.debug("Bucket already exists (race condition): %s", bucket_name)
+
+
 def upload(skill_md: str, bucket_name: str | None = None) -> str:
     """
-    Upload SKILL.md to GCS.
+    Upload SKILL.md to GCS. Creates the bucket if it doesn't exist.
     Returns the gs:// path to the skill directory (used as source in base_environment).
     """
     from google.cloud import storage
@@ -26,6 +40,8 @@ def upload(skill_md: str, bucket_name: str | None = None) -> str:
     log.info("Uploading SKILL.md to GCS — bucket=%s blob=%s", bucket, SKILL_BLOB)
 
     client = storage.Client()
+    _ensure_bucket(client, bucket)
+
     b = client.bucket(bucket)
     blob = b.blob(SKILL_BLOB)
     blob.upload_from_string(skill_md.encode("utf-8"), content_type="text/plain")
