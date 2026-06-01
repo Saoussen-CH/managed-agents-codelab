@@ -20,12 +20,24 @@ logging.basicConfig(
 )
 
 if DEBUG:
-    for _verbose in ("httpx", "httpcore", "google.genai", "google_genai"):
+    # Show every HTTP call — both genai and google-cloud-aiplatform SDKs
+    for _verbose in (
+        "httpx", "httpcore",
+        "google.genai", "google_genai",
+        "google.cloud", "google.api_core",
+        "vertexai",
+    ):
         logging.getLogger(_verbose).setLevel(logging.DEBUG)
     logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 else:
-    for _noisy in ("httpx", "httpcore", "google.genai", "google_genai", "watchfiles.main", "uvicorn.access"):
+    for _noisy in (
+        "httpx", "httpcore",
+        "google.genai", "google_genai",
+        "google.cloud", "google.api_core",
+        "vertexai",
+        "watchfiles.main", "uvicorn.access",
+    ):
         logging.getLogger(_noisy).setLevel(logging.WARNING)
 
 log = logging.getLogger("digest")
