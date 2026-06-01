@@ -36,14 +36,14 @@ export default function Dashboard() {
 
       <div className="bg-white border rounded-xl p-6 space-y-4">
         <label className="block text-sm font-medium text-gray-700">
-          Agent <span className="text-gray-400 font-normal">(optional — uses inline config if blank)</span>
+          Agent <span className="text-gray-400 font-normal">(optional — runs base Antigravity agent with your current Voice & Skills if blank)</span>
         </label>
         <select
           value={agentId}
           onChange={(e) => setAgentId(e.target.value)}
           className="w-full border rounded-lg px-3 py-2 text-sm"
         >
-          <option value="">Inline config</option>
+          <option value="">Base Antigravity agent (remote sandbox)</option>
           {agents.map((a) => (
             <option key={a.id} value={a.id}>{a.id}</option>
           ))}
