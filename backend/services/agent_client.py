@@ -365,35 +365,34 @@ def download_pdf(environment_id: str) -> bytes:
         tar_path = Path(tmp) / "snapshot.tar"
 
         if _is_vertex():
-            token = subprocess.check_output(
-                ["gcloud", "auth", "print-access-token"], text=True
-            ).strip()
-            # Try the Gemini API endpoint first (same underlying storage, works with bearer token)
-            url = f"https://generativelanguage.googleapis.com/v1beta/files/environment-{environment_id}:download"
-            log.info("Trying Gemini API download endpoint for Vertex env: %s", url)
+            # Use google.auth to get a token with both cloud-platform AND
+            # generative-language scopes — gcloud ADC alone lacks the latter.
+            from google.auth import default as google_auth_default
+            from google.auth.transport.requests import Request as GoogleAuthRequest
+
+            credentials, _ = google_auth_default(scopes=[
+                "https://www.googleapis.com/auth/cloud-platform",
+                "https://www.googleapis.com/auth/generative-language",
+            ])
+            credentials.refresh(GoogleAuthRequest())
+            token = credentials.token
+            log.debug("OAuth2 token obtained via google.auth (scopes: cloud-platform + generative-language)")
+
+            url = (
+                f"https://generativelanguage.googleapis.com/v1beta/files/"
+                f"environment-{environment_id}:download"
+            )
+            log.info("Downloading Vertex env snapshot: %s", url)
             r = http_requests.get(
                 url,
                 params={"alt": "media"},
                 headers={"Authorization": f"Bearer {token}"},
                 allow_redirects=True,
             )
-            if r.status_code == 404:
-                # Fallback: try aiplatform endpoint
-                project = os.environ["GOOGLE_CLOUD_PROJECT"]
-                location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
-                url2 = (
-                    f"https://aiplatform.googleapis.com/v1beta1/projects/{project}"
-                    f"/locations/{location}/files/environment-{environment_id}:download"
-                )
-                log.info("Falling back to aiplatform endpoint: %s", url2)
-                r = http_requests.get(
-                    url2,
-                    params={"alt": "media"},
-                    headers={"Authorization": f"Bearer {token}"},
-                    allow_redirects=True,
-                )
             log.info("Download response — status=%d content-type=%s size=%d",
                      r.status_code, r.headers.get("content-type", "?"), len(r.content))
+            if not r.ok:
+                log.error("Download failed — body=%s", r.text[:500])
         else:
             api_key = os.environ["GEMINI_API_KEY"]
             url = f"https://generativelanguage.googleapis.com/v1beta/files/environment-{environment_id}:download"
