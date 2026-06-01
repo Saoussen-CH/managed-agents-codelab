@@ -90,7 +90,8 @@ def _skill_sources(
     if _is_vertex() and skill_registry_name:
         return [
             {"type": "inline", "target": "/.agent/AGENTS.md", "content": agents_md},
-            {"type": "skill_registry", "source": skill_registry_name, "target": "/.agent/skills"},
+            # Trailing slash matches the docs example: "target": "/.agent/skills/"
+            {"type": "skill_registry", "source": skill_registry_name, "target": "/.agent/skills/"},
         ]
 
     # Inline fallback
@@ -98,6 +99,7 @@ def _skill_sources(
         [".agents/AGENTS.md", "/.agent/AGENTS.md"] if _is_vertex() else [".agents/AGENTS.md"]
     )
     skill_targets = (
+        # Vertex uses .agent/ (singular). Both paths attempted for discovery.
         [".agents/skills/digest-pdf/SKILL.md", "/.agent/skills/digest-pdf/SKILL.md"]
         if _is_vertex()
         else [".agents/skills/digest-pdf/SKILL.md"]
