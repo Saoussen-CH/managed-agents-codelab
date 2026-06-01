@@ -124,7 +124,19 @@ def download_pdf(run_id: str):
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="PDF not found in snapshot")
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        msg = str(exc)
+        if "ACCESS_TOKEN_SCOPE_INSUFFICIENT" in msg or "insufficient authentication scopes" in msg.lower():
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Missing OAuth2 scope for PDF download. Re-authenticate with: "
+                    "gcloud auth application-default login "
+                    '--scopes="openid,https://www.googleapis.com/auth/userinfo.email,'
+                    "https://www.googleapis.com/auth/cloud-platform,"
+                    'https://www.googleapis.com/auth/generative-language"'
+                ),
+            )
+        raise HTTPException(status_code=502, detail=msg)
 
     return Response(
         content=pdf_bytes,
