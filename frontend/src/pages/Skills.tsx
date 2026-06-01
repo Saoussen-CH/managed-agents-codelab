@@ -99,7 +99,7 @@ export default function Skills() {
         </button>
       </div>
 
-      {/* Skill Registry — Vertex mode only */}
+      {/* Skill Registry — Vertex mode only. Feature may not be available on all projects (Pre-GA enrollment required). */}
       {isVertex && (
         <div className="border rounded-xl p-4 space-y-3 bg-white">
           <div className="flex items-center justify-between">
@@ -165,6 +165,7 @@ export default function Skills() {
 
           <p className="text-xs text-gray-400">
             Save your skill content first, then publish. Agents created after publishing will use the registry skill instead of inline content.
+            {" "}If you see a "project doesn't exist" error, the Skill Registry requires separate Pre-GA enrollment — inline skills work identically without it.
           </p>
         </div>
       )}
