@@ -47,10 +47,14 @@ export default function Skills() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["config"] }),
   });
 
+  const [unpublishDone, setUnpublishDone] = useState(false);
+
   const unpublishMutation = useMutation({
     mutationFn: unpublishSkill,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["config"] });
+      setUnpublishDone(true);
+      setTimeout(() => setUnpublishDone(false), 3000);
     },
   });
 
@@ -120,8 +124,20 @@ export default function Skills() {
 
           {publishMutation.isError && (
             <p className="text-xs text-red-500">
-              {String((publishMutation.error as Error)?.message ?? "Publish failed")}
+              {publishMutation.error instanceof Error
+                ? publishMutation.error.message
+                : String(publishMutation.error ?? "Publish failed")}
             </p>
+          )}
+          {unpublishMutation.isError && (
+            <p className="text-xs text-red-500">
+              {unpublishMutation.error instanceof Error
+                ? unpublishMutation.error.message
+                : String(unpublishMutation.error ?? "Unpublish failed")}
+            </p>
+          )}
+          {unpublishDone && (
+            <p className="text-xs text-green-600">Skill removed from registry.</p>
           )}
 
           <div className="flex gap-2">

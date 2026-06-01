@@ -65,6 +65,16 @@ def publish(skill_md: str, project: str) -> str:
     return resource
 
 
+def unpublish(project: str) -> None:
+    """Delete the skill from the registry."""
+    client = _get_client(project)
+    try:
+        client.skills.delete(name=_resource_name(project))
+        log.info("Skill deleted from registry: %s", SKILL_ID)
+    except Exception as exc:
+        log.warning("Skill delete failed (may not exist): %s", exc)
+
+
 def get_status(project: str) -> dict:
     """Return current skill status from the registry."""
     client = _get_client(project)
