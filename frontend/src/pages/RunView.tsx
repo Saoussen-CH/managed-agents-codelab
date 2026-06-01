@@ -44,6 +44,15 @@ export default function RunView() {
   }, [id]);
 
   const displayText = refineOutput ?? outputText;
+  const [copied, setCopied] = useState(false);
+
+  function copyText() {
+    if (!displayText) return;
+    navigator.clipboard.writeText(displayText).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -71,14 +80,24 @@ export default function RunView() {
             </div>
           )}
 
-          {pdfAvailable && id && (
-            <a
-              href={getPdfUrl(id)}
-              download
-              className="inline-block bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg px-4 py-2 text-center transition-colors shrink-0"
-            >
-              Download PDF
-            </a>
+          {displayText && (
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={copyText}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+              >
+                {copied ? "Copied ✓" : "Copy"}
+              </button>
+              {id && (
+                <a
+                  href={getPdfUrl(id)}
+                  download
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg px-4 py-2 text-center transition-colors"
+                >
+                  Download PDF
+                </a>
+              )}
+            </div>
           )}
 
           {!streaming && id && (

@@ -114,29 +114,22 @@ async def stream_run(run_id: str):
 
 @router.get("/{run_id}/pdf")
 def download_pdf(run_id: str):
+    """Generate a PDF locally from the stored output_text — no sandbox access needed."""
+    from backend.services.pdf_generator import text_to_pdf
+
     run = storage.read_run(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    if not run.pdf_available or not run.environment_id:
-        raise HTTPException(status_code=404, detail="PDF not available")
+
+    text = run.refine_output_text or run.output_text
+    if not text:
+        raise HTTPException(status_code=404, detail="No output text to generate PDF from")
+
     try:
-        pdf_bytes = agent_client.download_pdf(run.environment_id)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="PDF not found in snapshot")
+        pdf_bytes = text_to_pdf(text)
     except Exception as exc:
-        msg = str(exc)
-        if "ACCESS_TOKEN_SCOPE_INSUFFICIENT" in msg or "insufficient authentication scopes" in msg.lower():
-            raise HTTPException(
-                status_code=403,
-                detail=(
-                    "Missing OAuth2 scope for PDF download. Re-authenticate with: "
-                    "gcloud auth application-default login "
-                    '--scopes="openid,https://www.googleapis.com/auth/userinfo.email,'
-                    "https://www.googleapis.com/auth/cloud-platform,"
-                    'https://www.googleapis.com/auth/generative-language"'
-                ),
-            )
-        raise HTTPException(status_code=502, detail=msg)
+        log.error("PDF generation failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
     return Response(
         content=pdf_bytes,

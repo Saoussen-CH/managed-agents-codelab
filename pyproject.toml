@@ -13,4 +13,5 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "google-cloud-aiplatform>=1.152.0",
     "google-cloud-storage>=3.10.1",
+    "fpdf2>=2.8.7",
 ]
