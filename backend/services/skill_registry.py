@@ -20,10 +20,11 @@ def _parse_description(skill_md: str) -> str:
 
 
 def _get_client(project: str):
-    # Use agentplatform.Client as documented for google-cloud-aiplatform >= 1.154.0
-    import agentplatform
-    log.debug("Creating agentplatform.Client — project=%s location=%s", project, SKILL_LOCATION)
-    return agentplatform.Client(project=project, location=SKILL_LOCATION)
+    # Use vertexai.Client exactly as the official notebook shows
+    import vertexai
+    log.debug("Initialising vertexai — project=%s location=%s", project, SKILL_LOCATION)
+    vertexai.init(project=project, location=SKILL_LOCATION)
+    return vertexai.Client(project=project, location=SKILL_LOCATION)
 
 
 def publish(skill_md: str, project: str) -> str:
@@ -58,12 +59,14 @@ def publish(skill_md: str, project: str) -> str:
         log.debug("  local_path=%s", str(skill_dir))
 
         try:
-            # >= 1.154.0 API: skill_id is a top-level parameter, not inside config
+            # Match the official notebook exactly (google-cloud-aiplatform 1.152.0 API)
             skill = client.skills.create(
-                skill_id=SKILL_ID,
                 display_name="digest-pdf",
                 description=description,
-                config={"local_path": str(skill_dir)},
+                config={
+                    "skill_id": SKILL_ID,
+                    "local_path": str(skill_dir),
+                },
             )
         except Exception as exc:
             log.error("client.skills.create failed: %s", exc)
