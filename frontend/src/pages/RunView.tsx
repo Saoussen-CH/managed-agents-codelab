@@ -106,8 +106,7 @@ export default function RunView() {
                 setEvents((prev) => [...prev, ...refineEvents]);
                 const out = refineEvents.findLast((e) => e.type === "output");
                 if (out?.content) setRefineOutput(out.content);
-                const done = refineEvents.find((e) => e.type === "done");
-                // pdf generated locally — no state update needed
+                // pdf generated locally from output_text — no extra state needed
               }}
             />
           )}
