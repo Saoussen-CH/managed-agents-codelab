@@ -3,7 +3,6 @@ import { useParams } from "react-router-dom";
 import StreamFeed from "../components/StreamFeed";
 import RefinePanel from "../components/RefinePanel";
 import type { SSEEvent } from "../types";
-import { getPdfUrl } from "../api";
 
 export default function RunView() {
   const { id } = useParams<{ id: string }>();
@@ -44,6 +43,7 @@ export default function RunView() {
 
   const displayText = refineOutput ?? outputText;
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   function copyText() {
     if (!displayText) return;
@@ -51,6 +51,28 @@ export default function RunView() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  }
+
+  async function downloadPdf() {
+    if (!id || downloading) return;
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/runs/${id}/pdf`);
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `digest-${id.slice(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(`Download failed: ${err}`);
+    } finally {
+      setDownloading(false);
+    }
   }
 
   return (
@@ -87,15 +109,13 @@ export default function RunView() {
               >
                 {copied ? "Copied ✓" : "Copy"}
               </button>
-              {id && (
-                <a
-                  href={getPdfUrl(id)}
-                  download
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg px-4 py-2 text-center transition-colors"
-                >
-                  Download PDF
-                </a>
-              )}
+              <button
+                onClick={downloadPdf}
+                disabled={downloading}
+                className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+              >
+                {downloading ? "Generating…" : "Download PDF"}
+              </button>
             </div>
           )}
 
