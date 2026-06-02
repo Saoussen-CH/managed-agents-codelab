@@ -164,6 +164,9 @@ def _handle_event(event, put, text_parts: list[str]) -> tuple[str | None, str | 
                 queries = getattr(args, "queries", []) if args else []
                 put({"type": "step", "content": f"🔍 Searching: {queries[0] if queries else '…'}"})
             elif stype == "model_output":
+                # Each new model_output step replaces the previous one.
+                # The agent narrates actions in earlier steps; the LAST step is the actual digest.
+                text_parts.clear()
                 put({"type": "step", "content": "✍️ Writing response…"})
 
     elif event_type == "step.delta":
