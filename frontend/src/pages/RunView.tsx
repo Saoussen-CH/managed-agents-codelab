@@ -10,7 +10,6 @@ export default function RunView() {
   const [events, setEvents] = useState<SSEEvent[]>([]);
   const [streaming, setStreaming] = useState(true);
   const [outputText, setOutputText] = useState<string | null>(null);
-  const [pdfAvailable, setPdfAvailable] = useState(false);
   const [refineOutput, setRefineOutput] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,7 +24,7 @@ export default function RunView() {
         setOutputText(event.content);
       }
       if (event.type === "done") {
-        setPdfAvailable(event.pdf_available ?? false);
+        // pdf is now generated locally from output_text — no state needed
         setStreaming(false);
         es.close();
       }
@@ -108,7 +107,7 @@ export default function RunView() {
                 const out = refineEvents.findLast((e) => e.type === "output");
                 if (out?.content) setRefineOutput(out.content);
                 const done = refineEvents.find((e) => e.type === "done");
-                if (done?.pdf_available) setPdfAvailable(true);
+                // pdf generated locally — no state update needed
               }}
             />
           )}
