@@ -1,0 +1,10 @@
+[project]
+name = "digest-codelab"
+version = "0.1.0"
+description = "Managed Agents Gemini API — hands-on codelab"
+requires-python = ">=3.10"
+dependencies = [
+    "google-genai>=2.7.0",
+    "python-dotenv>=1.0.0",
+    "requests>=2.34.0",
+]
