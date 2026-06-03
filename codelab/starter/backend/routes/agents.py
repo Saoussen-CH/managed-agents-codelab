@@ -10,18 +10,14 @@ log = logging.getLogger("digest.agents")
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
 
-def _get_client():
-    return _make_client()
-
-
 @router.get("")
 def list_agents():
-    # ── TODO 6a ─────────────────────────────────────────────────────────────
-    # List all saved managed agents.
-    # client.agents.list() returns an object with an .agents attribute.
+    # TODO 6: List all saved managed agents
+    # client.agents.list() returns an object with a .agents attribute.
+    # Return a list of dicts with id, description, and base_agent for each.
     #
     # try:
-    #     result = _get_client().agents.list()
+    #     result = _make_client().agents.list()
     #     agents = result.agents or []
     #     return [
     #         {
@@ -34,8 +30,7 @@ def list_agents():
     # except Exception as exc:
     #     _reset_client()
     #     raise HTTPException(status_code=502, detail=str(exc))
-    # ─────────────────────────────────────────────────────────────────────────
-    return []
+    return []  # TODO 6: replace with agents.list() call
 
 
 @router.post("", status_code=201)
@@ -43,12 +38,19 @@ def create_agent(req: CreateAgentRequest):
     config = storage.read_config()
     log.info("Creating agent — id=%s", req.id)
 
-    # ── TODO 6b ─────────────────────────────────────────────────────────────
-    # Save the current configuration as a managed agent.
-    # base_environment bakes in AGENTS.md + SKILL.md so every future invocation
-    # gets them automatically — no inline config needed at call time.
+    # TODO 7: Save the current configuration as a managed agent
+    # agents.create() bakes in your voice, AGENTS.md and SKILL.md permanently.
+    # Every future call with environment="remote" forks a fresh sandbox that already
+    # has your config — no inline sources needed at invocation time.
+    # Use:
+    #   id=req.id
+    #   base_agent=BASE_AGENT
+    #   description=req.description
+    #   system_instruction=config.voice
+    #   tools=[{"type": "code_execution"}, {"type": "google_search"}, {"type": "url_context"}]
+    #   base_environment={"type": "remote", "sources": _inline_sources(config.agents_md, config.skill_md)}
     #
-    # agent = _get_client().agents.create(
+    # agent = _make_client().agents.create(
     #     id=req.id,
     #     base_agent=BASE_AGENT,
     #     description=req.description,
@@ -65,14 +67,13 @@ def create_agent(req: CreateAgentRequest):
     # )
     # log.info("Agent created — id=%s", getattr(agent, "id", req.id))
     # return {"id": getattr(agent, "id", req.id), "description": getattr(agent, "description", req.description)}
-    # ─────────────────────────────────────────────────────────────────────────
-    raise HTTPException(status_code=501, detail="TODO 6b not implemented — add agents.create()")
+    raise HTTPException(status_code=501, detail="TODO 7 not implemented")
 
 
 @router.get("/{agent_id}")
 def get_agent(agent_id: str):
     try:
-        a = _get_client().agents.get(id=agent_id)
+        a = _make_client().agents.get(id=agent_id)
         return {
             "id": a.id,
             "description": getattr(a, "description", ""),
@@ -85,7 +86,7 @@ def get_agent(agent_id: str):
 @router.delete("/{agent_id}", status_code=204)
 def delete_agent(agent_id: str):
     try:
-        _get_client().agents.delete(id=agent_id)
+        _make_client().agents.delete(id=agent_id)
         log.info("Agent deleted — id=%s", agent_id)
     except Exception:
         raise HTTPException(status_code=404, detail="Agent not found")
