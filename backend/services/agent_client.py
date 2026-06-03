@@ -63,11 +63,15 @@ def _build_prompt(sources: list[str]) -> str:
         "For each source below:\n"
         + "\n".join(f"- {s}" for s in sources)
         + "\n\n"
-        "1. Fetch the homepage.\n"
-        "2. Pull the top 3 headlines.\n"
-        "3. Summarize each in one sentence.\n"
-        "4. Group output by source.\n"
-        "5. Generate a PDF using the digest-pdf skill."
+        "Steps:\n"
+        "1. Fetch each homepage.\n"
+        "2. Extract the top 3 headlines per source.\n"
+        "3. Write the full digest as formatted text output — grouped by source, "
+        "with a title and 2-3 sentence summary per story. "
+        "Include a 'Skip This' section at the end.\n"
+        "4. Output the complete written digest to the user BEFORE generating the PDF.\n"
+        "5. Then generate the PDF using the digest-pdf skill.\n\n"
+        "The written digest must appear as your text output, not only inside the PDF."
     )
 
 
