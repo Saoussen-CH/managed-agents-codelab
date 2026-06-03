@@ -702,3 +702,455 @@ Congratulations! You built a production-quality managed agent application on the
 - Explore the [Antigravity Agent](https://ai.google.dev/gemini-api/docs/antigravity-agent) capabilities and pricing
 - Try the [Building Custom Agents](https://ai.google.dev/gemini-api/docs/custom-agents) guide for network rules and Git/GCS sources
 - Build a different agent: a data analyst, a code reviewer, or a research synthesizer
+
+---
+
+## Bonus: Deploy to Vertex AI Agent Platform
+
+Duration: 03:00
+
+The app you just built runs on the **Gemini API** — simple API key, open network, commercial use allowed.
+
+The same Managed Agents API is also available on the **Vertex AI Agent Platform**. Same SDK, same agent, same
+Antigravity harness — but hosted inside your GCP project with IAM authentication, network isolation by default,
+and enterprise-grade observability.
+
+### When to use Vertex instead of the Gemini API
+
+| | Gemini API | Vertex AI Agent Platform |
+|---|---|---|
+| Auth | API key | gcloud ADC (OAuth2) |
+| Network default | Open | **Denied — must add allowlist** |
+| Commercial use | ✓ Allowed | Pre-GA — eval only |
+| Billing | AI Studio prepay credits | GCP project billing |
+| MCP servers | Not yet supported | First-class citizen |
+| Status | Public Preview | Pre-GA |
+
+> aside negative
+>
+> **Pre-GA terms.** The Vertex AI Agent Platform is Pre-GA. Do not use proprietary, sensitive, or confidential data.
+> It is available for limited testing and evaluation only — not commercial or production use.
+
+The remaining steps extend the same `codelab/starter` app. All the TODOs you completed still work — you are adding
+Vertex support as an optional surface, not replacing anything.
+
+---
+
+## Bonus: Set Up a GCP Project
+
+Duration: 08:00
+
+### Create or select a project
+
+Go to [console.cloud.google.com](https://console.cloud.google.com) and create a project or select an existing one.
+Note your **Project ID** — you'll need it below.
+
+### Enable the Agent Platform API
+
+```bash
+export PROJECT_ID=your-project-id
+
+gcloud services enable aiplatform.googleapis.com --project=$PROJECT_ID
+```
+
+Expected output:
+```text
+Operation "operations/..." finished successfully.
+```
+
+### Authenticate with Application Default Credentials
+
+The `genai.Client(enterprise=True)` uses **ADC** (OAuth2) — not an API key. You must authenticate once:
+
+```bash
+gcloud auth application-default login
+```
+
+A browser tab opens. Log in with the Google account that owns the GCP project.
+
+```bash
+gcloud auth application-default set-quota-project $PROJECT_ID
+```
+
+Expected output:
+```text
+Credentials saved to: ~/.config/gcloud/application_default_credentials.json
+Quota project "your-project-id" was added to ADC
+```
+
+> aside positive
+>
+> **Why two auth commands?** `gcloud auth application-default login` creates credentials that Python applications use
+> to call Google Cloud APIs. `set-quota-project` tells Google which project to bill for API usage. Both are required.
+
+> aside positive
+>
+> **ADC vs API key.** With the Gemini API you pass `GEMINI_API_KEY` — an API key. With Vertex AI you use ADC —
+> OAuth2 credentials tied to your GCP identity. The SDK reads them from
+> `~/.config/gcloud/application_default_credentials.json` automatically.
+
+### Configure the app
+
+Open `.env` and add the Vertex AI settings:
+
+```bash
+# ============================================
+# Vertex AI Agent Platform
+# ============================================
+USE_VERTEX=true
+GOOGLE_CLOUD_PROJECT=your-project-id
+GOOGLE_CLOUD_LOCATION=global
+
+# NOTE: GEMINI_API_KEY is still needed for PDF downloads even on Vertex.
+# Environment snapshots are stored in Gemini file storage regardless of surface.
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+> aside negative
+>
+> **Keep GEMINI_API_KEY.** The environment snapshot download (`digest.pdf`) uses the Gemini Files API regardless of
+> surface. Without `GEMINI_API_KEY`, the Download PDF button will fail with a 502.
+
+---
+
+## Bonus: Switch the Client to Vertex
+
+Duration: 05:00
+
+The app already supports Vertex AI — `backend/services/agent_client.py` has the full dual-surface implementation
+in `_make_client()`. Open it:
+
+```bash
+code backend/services/agent_client.py
+```
+
+Find `_make_client()` and review the Vertex branch you are now enabling:
+
+```python
+if _is_vertex():
+    project  = os.environ.get("GOOGLE_CLOUD_PROJECT")
+    location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
+    if not project:
+        raise RuntimeError("GOOGLE_CLOUD_PROJECT must be set when USE_VERTEX=true")
+    log.info("Creating Vertex AI client — project=%s location=%s", project, location)
+    # Strip API key vars — Vertex uses ADC (OAuth2), not API keys
+    for _key in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        os.environ.pop(_key, None)
+    _client_singleton = genai.Client(enterprise=True, project=project, location=location)
+```
+
+Three differences from the Gemini API client:
+
+| | Gemini API | Vertex AI |
+|---|---|---|
+| Client init | `genai.Client()` | `genai.Client(enterprise=True, project=..., location=...)` |
+| Auth | Reads `GEMINI_API_KEY` | Reads ADC from `~/.config/gcloud/...` |
+| API endpoint | `generativelanguage.googleapis.com` | `aiplatform.googleapis.com` |
+
+`enterprise=True` is the correct parameter — it routes calls to the Vertex AI Agent Platform endpoint.
+
+> aside positive
+>
+> **Why strip API key vars?** If `GEMINI_API_KEY` is set in the environment, the SDK may send it as a request header
+> even when `enterprise=True`. Vertex AI rejects API key auth with 401 CREDENTIALS_MISSING. Removing them forces
+> the SDK to use ADC exclusively.
+
+### Verify
+
+Restart the backend:
+
+```bash
+uv run uvicorn backend.main:app --reload
+```
+
+Expected log line:
+```text
+INFO  digest  Surface: Vertex AI Agent Platform (project=your-project-id)
+INFO  digest  Creating Vertex AI client — project=your-project-id location=global
+```
+
+---
+
+## Bonus: Vertex-Specific Parameters
+
+Duration: 05:00
+
+Vertex AI interactions require two additional parameters that the Gemini API does not use.
+
+### `background=True` and `store=True`
+
+Find `_stream_sync()` and look for this block (already implemented in the master branch):
+
+```python
+if _is_vertex():
+    kwargs["background"] = True
+    kwargs["store"] = True
+```
+
+| Parameter | Purpose |
+|---|---|
+| `background=True` | Required on Vertex — enables background processing mode |
+| `store=True` | Required on Vertex — interactions must be stored |
+
+> aside negative
+>
+> **Not supported on Gemini API.** `background=True` is explicitly listed as unsupported in the Antigravity agent
+> limitations. The app adds these parameters only when `_is_vertex()` is True.
+
+### Network allowlist — required on Vertex
+
+On the Gemini API the sandbox has **open** outbound network access by default. On Vertex it is **denied** by default.
+Without an allowlist, the agent cannot fetch URLs and every web request silently fails.
+
+Find `_base_environment()`:
+
+```python
+def _base_environment(extra_sources: list[dict] | None = None) -> dict:
+    env: dict = {"type": "remote"}
+    if extra_sources:
+        env["sources"] = extra_sources
+    if _is_vertex():
+        env["network"] = {"allowlist": [{"domain": "*"}]}   # ← added for Vertex
+    return env
+```
+
+`{"domain": "*"}` allows connections to all domains. For production you would restrict this to specific domains.
+
+### No `environment` for custom agents on Vertex
+
+When invoking a **saved agent** on Vertex, do not pass `environment`:
+
+```python
+if agent_id:
+    if not _is_vertex():
+        kwargs["environment"] = "remote"
+    # Vertex: omit — the agent's base_environment is used automatically
+```
+
+On Vertex, passing `environment` overrides `base_environment`, causing the agent to start without your AGENTS.md
+and SKILL.md. Omitting it lets the saved agent's baked-in configuration take effect.
+
+### Verify
+
+Click **Run Digest** in the browser. In the backend logs you should see the interaction start:
+
+```text
+INFO  digest.agent  Starting interaction — agent=antigravity-preview-05-2026 sources=3
+DEBUG httpcore      connect_tcp.started host='aiplatform.googleapis.com'
+```
+
+The request hits `aiplatform.googleapis.com` instead of `generativelanguage.googleapis.com`.
+
+> aside negative
+>
+> **First run may take longer.** On Vertex the sandbox is provisioned on first call — "Provisioning is in progress"
+> 500 errors are normal. The app retries up to 5 times with exponential backoff. Subsequent runs start faster.
+
+---
+
+## Bonus: Upload Skills to GCS
+
+Duration: 08:00
+
+On the Gemini API, skills are sent inline with every call (2 MB total limit). On Vertex the recommended pattern
+is to upload skills to **Google Cloud Storage** and reference them by GCS path. The skill file is fetched once
+when the sandbox starts — not re-sent on every call.
+
+### Create a GCS bucket
+
+```bash
+export BUCKET_NAME="${PROJECT_ID}-digest-skills"
+
+gcloud storage buckets create gs://${BUCKET_NAME} \
+    --location=us-central1 \
+    --project=${PROJECT_ID}
+```
+
+Add the bucket name to `.env`:
+
+```text
+GCS_BUCKET=your-project-id-digest-skills
+```
+
+### Upload SKILL.md from the UI
+
+1. Go to the **Skills** page in the app
+2. Edit your SKILL.md content as needed
+3. Click **Save** first
+4. Click **Upload to GCS** — the app uploads `SKILL.md` to `gs://${GCS_BUCKET}/skills/digest-pdf/SKILL.md`
+
+The **Skills** page shows the GCS path once uploaded:
+```text
+gs://your-project-id-digest-skills/skills/digest-pdf
+```
+
+### How the GCS source is mounted
+
+After uploading, the app stores `gcs_skill_path` in `data/config.json`. Future interactions use a GCS source
+instead of inline:
+
+```python
+if _is_vertex() and gcs_skill_path:
+    return [
+        {"type": "inline", "target": "/.agent/AGENTS.md", "content": agents_md},
+        {"type": "gcs",    "source": gcs_skill_path,      "target": "/.agent/skills/digest-pdf"},
+    ]
+```
+
+The sandbox mounts the GCS directory at `/.agent/skills/digest-pdf`. The harness scans `/.agent/skills/` and
+auto-discovers `SKILL.md` there — the same discovery mechanism as the inline path.
+
+> aside positive
+>
+> **Why GCS on Vertex?** Inline sources have a 2 MB total limit. GCS sources support up to 2 GB. GCS is also
+> the idiomatic Vertex pattern — skills shared across multiple agents live in one bucket rather than being
+> re-serialized in every request.
+
+> aside positive
+>
+> **Inline still works.** If you have not uploaded to GCS, the app falls back to inline sources automatically.
+> GCS is the production pattern; inline is fine for iteration.
+
+---
+
+## Bonus: Save an Agent on Vertex
+
+Duration: 05:00
+
+Saving agents on Vertex works the same way as on the Gemini API — go to the **Agents** page, enter an ID, click
+Save. Under the hood, two things differ.
+
+### Network allowlist in `base_environment`
+
+When creating an agent on Vertex, the app adds the network allowlist to `base_environment` so every invocation
+has it automatically:
+
+```python
+if _is_vertex():
+    base_env["network"] = {"allowlist": [{"domain": "*"}]}
+```
+
+Without this, the saved agent's sandbox would have no network access — the agent could not fetch any URLs.
+
+### LRO — agent creation is asynchronous on Vertex
+
+On the Gemini API, `agents.create()` returns the agent synchronously with `agent.id` populated.
+
+On Vertex it returns a **Long-Running Operation (LRO)**:
+
+```python
+Agent(id=None, name='projects/.../agents/my-digest/operations/...')
+```
+
+`agent.id` is `None` until provisioning completes. The app polls `agents.get(id=req.id)` for up to 60 seconds:
+
+```python
+if _is_vertex() and not getattr(agent, "id", None):
+    log.info("Waiting for agent provisioning — id=%s", req.id)
+    for attempt in range(12):
+        time.sleep(5)
+        agent = _get_client().agents.get(id=req.id)
+        if getattr(agent, "id", None):
+            break
+```
+
+> aside positive
+>
+> **This is normal.** LRO is standard for Vertex AI resources. Agent provisioning takes 10–30 seconds on first
+> creation. The Gemini API creates agents synchronously — the difference is surface-specific.
+
+---
+
+## Bonus: Run on Vertex AI
+
+Duration: 05:00
+
+With `USE_VERTEX=true` and the backend restarted, run a full digest:
+
+1. Go to the **Dashboard**
+2. Select **Base Antigravity agent (remote sandbox)** from the dropdown
+3. Click **Run Digest**
+
+You should see the stream feed populate with Vertex-specific event types and the agent working in the sandbox.
+
+### Try with a saved agent
+
+1. Go to **Agents** → create an agent (e.g. `my-vertex-digest`)
+2. Wait for provisioning (~30 seconds, shown in the logs)
+3. Go to **Dashboard** → select `my-vertex-digest` from the dropdown
+4. Click **Run Digest**
+
+Notice the request in the logs has no `system_instruction` or `sources` — the saved agent's `base_environment`
+handles both.
+
+### Inspect the differences
+
+With `DEBUG=true` in `.env`, restart the backend and run again. Compare the request logs:
+
+**Gemini API:**
+```text
+POST https://generativelanguage.googleapis.com/v1beta/interactions
+{"agent": "...", "input": "...", "stream": true, "system_instruction": "...", "environment": {...}}
+```
+
+**Vertex AI:**
+```text
+POST https://aiplatform.googleapis.com/v1beta1/projects/.../locations/global/interactions
+{"agent": "...", "input": "...", "stream": true, "background": true, "store": true}
+```
+
+Different endpoint, different parameters, same result.
+
+---
+
+## Bonus: Switch Back to Gemini API
+
+Duration: 02:00
+
+To return to the Gemini API surface, edit `.env`:
+
+```text
+# Comment out Vertex settings
+# USE_VERTEX=true
+# GOOGLE_CLOUD_PROJECT=your-project-id
+# GOOGLE_CLOUD_LOCATION=global
+
+# Uncomment Gemini API key
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+Restart the backend. The singleton client resets automatically on restart and creates a new `genai.Client()`.
+
+> aside positive
+>
+> **The singleton resets on restart.** `_client_singleton` is a module-level variable — it resets every time the
+> Python process restarts. Changing `.env` and restarting the server is all you need to switch surfaces.
+
+---
+
+## Bonus: Summary — Gemini API vs Vertex AI
+
+Duration: 02:00
+
+You've now run the same app on both surfaces. Here is what actually changed in the code:
+
+| | Gemini API | Vertex AI |
+|---|---|---|
+| Client init | `genai.Client()` | `genai.Client(enterprise=True, project=..., location="global")` |
+| Extra parameters | — | `background=True`, `store=True` |
+| Network | Open by default | Denied — add `{"allowlist": [{"domain": "*"}]}` |
+| Custom agent invocation | `environment="remote"` | Omit `environment` |
+| Agent creation | Synchronous, `agent.id` immediate | LRO — poll `agents.get()` until `id` appears |
+| Skills | Inline sources | GCS source (recommended) |
+| PDF download | `GEMINI_API_KEY` | `GEMINI_API_KEY` (Gemini Files API regardless of surface) |
+| Auth | API key in `.env` | `gcloud auth application-default login` |
+| Billing | AI Studio prepay credits | GCP project billing |
+
+**The application code is 95% identical.** All the surface-specific differences are isolated to `_make_client()`,
+`_stream_sync()`, `_base_environment()`, and `_skill_sources()` in `agent_client.py`.
+
+### Resources
+
+- [Vertex AI Agent Platform documentation](https://cloud.google.com/gemini-enterprise-agent-platform/build/managed-agents)
+- [Environments and network configuration](https://cloud.google.com/gemini-enterprise-agent-platform/build/managed-agents/sandbox-environment)
+- [Interactions API reference](https://cloud.google.com/gemini-enterprise-agent-platform/reference/models/interactions-api)
