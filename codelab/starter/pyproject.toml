@@ -1,10 +1,17 @@
 [project]
-name = "digest-codelab"
+name = "managedagents"
 version = "0.1.0"
-description = "Managed Agents Gemini API — hands-on codelab"
+description = "Daily tech digest agent — Google Managed Agents API"
 requires-python = ">=3.10"
 dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    "sse-starlette>=2.1.0",
     "google-genai>=2.7.0",
-    "python-dotenv>=1.0.0",
     "requests>=2.34.0",
+    "aiofiles>=23.2.0",
+    "python-dotenv>=1.2.2",
+    "google-cloud-aiplatform>=1.152.0",
+    "google-cloud-storage>=3.10.1",
+    "fpdf2>=2.8.7",
 ]
