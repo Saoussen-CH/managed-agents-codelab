@@ -705,19 +705,26 @@ Congratulations! You built a production-quality managed agent application on the
 
 ---
 
-## Bonus: Deploy to Vertex AI Agent Platform
+## Bonus: Deploy to the Agent Platform
 
 Duration: 03:00
 
 The app you just built runs on the **Gemini API** — simple API key, open network, commercial use allowed.
 
-The same Managed Agents API is also available on the **Vertex AI Agent Platform**. Same SDK, same agent, same
-Antigravity harness — but hosted inside your GCP project with IAM authentication, network isolation by default,
-and enterprise-grade observability.
+The same Managed Agents API is also available on the **Vertex AI Agent Platform** — Google's enterprise surface for
+managed agents. Same `google-genai` SDK, same `antigravity-preview-05-2026` agent, same Antigravity harness — but
+hosted inside your GCP project with IAM authentication, network isolation by default, and enterprise observability.
 
-### When to use Vertex instead of the Gemini API
+> aside positive
+>
+> **Naming note.** The product is called the **Vertex AI Agent Platform** (or just "Agent Platform"). The Python SDK
+> package is still `google-genai`, but you initialise the client with `enterprise=True` rather than an API key. The
+> `google-cloud-aiplatform` package (which provides the `vertexai` module) is only needed for the Skill Registry
+> feature — not for interactions or agents.
 
-| | Gemini API | Vertex AI Agent Platform |
+### When to use Agent Platform instead of the Gemini API
+
+| | Gemini API | Agent Platform |
 |---|---|---|
 | Auth | API key | gcloud ADC (OAuth2) |
 | Network default | Open | **Denied — must add allowlist** |
@@ -736,7 +743,7 @@ Vertex support as an optional surface, not replacing anything.
 
 ---
 
-## Bonus: Set Up a GCP Project
+## Bonus: Set Up Your Agent Platform Project
 
 Duration: 08:00
 
@@ -791,17 +798,17 @@ Quota project "your-project-id" was added to ADC
 
 ### Configure the app
 
-Open `.env` and add the Vertex AI settings:
+Open `.env` and add the Agent Platform settings:
 
 ```bash
 # ============================================
-# Vertex AI Agent Platform
+# Agent Platform (Vertex AI Agent Platform)
 # ============================================
 USE_VERTEX=true
 GOOGLE_CLOUD_PROJECT=your-project-id
 GOOGLE_CLOUD_LOCATION=global
 
-# NOTE: GEMINI_API_KEY is still needed for PDF downloads even on Vertex.
+# NOTE: GEMINI_API_KEY is still needed for PDF downloads even on Agent Platform.
 # Environment snapshots are stored in Gemini file storage regardless of surface.
 GEMINI_API_KEY=your-gemini-api-key
 ```
@@ -813,7 +820,7 @@ GEMINI_API_KEY=your-gemini-api-key
 
 ---
 
-## Bonus: Switch the Client to Vertex
+## Bonus: Switch the Client to Agent Platform
 
 Duration: 05:00
 
@@ -871,7 +878,7 @@ INFO  digest  Creating Vertex AI client — project=your-project-id location=glo
 
 ---
 
-## Bonus: Vertex-Specific Parameters
+## Bonus: Agent Platform Parameters
 
 Duration: 05:00
 
@@ -948,7 +955,7 @@ The request hits `aiplatform.googleapis.com` instead of `generativelanguage.goog
 
 ---
 
-## Bonus: Upload Skills to GCS
+## Bonus: Upload Skills to GCS (Agent Platform)
 
 Duration: 08:00
 
@@ -1013,7 +1020,7 @@ auto-discovers `SKILL.md` there — the same discovery mechanism as the inline p
 
 ---
 
-## Bonus: Save an Agent on Vertex
+## Bonus: Save an Agent on the Agent Platform
 
 Duration: 05:00
 
@@ -1061,7 +1068,7 @@ if _is_vertex() and not getattr(agent, "id", None):
 
 ---
 
-## Bonus: Run on Vertex AI
+## Bonus: Run on Agent Platform
 
 Duration: 05:00
 
@@ -1103,7 +1110,7 @@ Different endpoint, different parameters, same result.
 
 ---
 
-## Bonus: Switch Back to Gemini API
+## Bonus: Switch Back to the Gemini API
 
 Duration: 02:00
 
@@ -1128,7 +1135,7 @@ Restart the backend. The singleton client resets automatically on restart and cr
 
 ---
 
-## Bonus: Summary — Gemini API vs Vertex AI
+## Bonus: Summary — Gemini API vs Agent Platform
 
 Duration: 02:00
 
