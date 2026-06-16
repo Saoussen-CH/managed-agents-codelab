@@ -193,11 +193,7 @@ The sandbox persists for 7 days. You can resume it across turns using `environme
 
 Duration: 05:00
 
-Open the agent client file in your editor:
-
-```bash
-code backend/services/agent_client.py
-```
+Open `backend/services/agent_client.py` in your editor.
 
 Find the `_make_client()` function. Inside the `with _client_lock:` block, you'll see:
 
@@ -477,11 +473,7 @@ The agent should respond using context from the first turn, no re-fetching the w
 
 Duration: 08:00
 
-Open the agents route file:
-
-```bash
-code backend/routes/agents.py
-```
+Open `backend/routes/agents.py` in your editor.
 
 ### Step 6: List agents
 
@@ -841,11 +833,7 @@ GEMINI_API_KEY=your-gemini-api-key
 Duration: 05:00
 
 The app already supports Vertex AI: `backend/services/agent_client.py` has the full dual-surface implementation
-in `_make_client()`. Open it:
-
-```bash
-code backend/services/agent_client.py
-```
+in `_make_client()`. Open it in your editor.
 
 Find `_make_client()` and review the Vertex branch you are now enabling:
 
