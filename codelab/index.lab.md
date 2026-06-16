@@ -1041,6 +1041,21 @@ auto-discovers `SKILL.md` there: the same discovery mechanism as the inline path
 > **Inline still works.** If you have not uploaded to GCS, the app falls back to inline sources automatically.
 > GCS is the production pattern; inline is fine for iteration.
 
+### Verify
+
+Confirm the GCS path is saved:
+
+```bash
+grep gcs_skill_path data/config.json
+```
+
+Expected:
+```text
+"gcs_skill_path": "gs://your-project-id-digest-skills/skills/digest-pdf"
+```
+
+Then go to the **Dashboard** and run a digest. The agent should complete normally. The difference from the previous run: `SKILL.md` was mounted from GCS instead of sent inline with the request. The output and PDF are identical.
+
 ---
 
 ## Bonus: Save an Agent on the Agent Platform
