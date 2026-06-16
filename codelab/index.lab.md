@@ -1124,29 +1124,30 @@ You have already run inline digests on Agent Platform in the previous steps. Thi
 3. Go to **Dashboard** → select `my-vertex-digest` from the dropdown
 4. Click **Run Digest**
 
-With `DEBUG=true` you should see no `system_instruction` or `sources` in the request: the saved agent's `base_environment` handles both.
+The backend log should show the saved agent ID and a successful run:
+
+```text
+Starting interaction — agent=my-vertex-digest sources=3
+Interaction complete — steps=... env=... interaction=...
+```
+
+The request body is not logged, but you can confirm the app sent no inline config by reading the code: when `agent_id` is set on Vertex, `_stream_sync` adds only `agent`, `input`, `background`, `store`, and `stream` — no `system_instruction` or `environment` sources. The saved agent's `base_environment` provides both.
 
 ### Inspect the differences
 
-With `DEBUG=true` in `.env`, restart the backend and run the **saved agent** on each surface. Compare the request logs:
+The two surfaces hit different endpoints and send different parameters. You can confirm this in the DEBUG logs — look for the `httpx` INFO line that shows the URL:
 
-**Gemini API (saved agent):**
+**Gemini API:**
 ```text
-POST https://generativelanguage.googleapis.com/v1beta/interactions
-{"agent": "my-digest", "input": "...", "stream": true, "environment": "remote"}
+INFO httpx HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/interactions "HTTP/1.1 200 OK"
 ```
 
-**Vertex AI (saved agent):**
+**Vertex AI:**
 ```text
-POST https://aiplatform.googleapis.com/v1beta1/projects/.../locations/global/interactions
-{"agent": "my-vertex-digest", "input": "...", "stream": true, "background": true, "store": true}
+INFO httpx HTTP Request: POST https://aiplatform.googleapis.com/v1beta1/projects/.../locations/global/interactions "HTTP/1.1 200 OK"
 ```
 
-Different endpoint, different parameters, same result.
-
-> aside positive
->
-> **Inline runs always include `system_instruction`.** The comparison above is for saved agents, where the instruction is baked into `base_environment`. When you run without a saved agent, `system_instruction` is sent on every call regardless of surface — you just can't see it in the logs without `DEBUG=true`.
+The request body is not logged at this level. The parameter differences (what is and isn't sent) are visible in the app code in `_stream_sync`, not in the logs.
 
 ---
 
