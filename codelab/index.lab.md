@@ -1130,21 +1130,25 @@ handles both.
 
 ### Inspect the differences
 
-With `DEBUG=true` in `.env`, restart the backend and run again. Compare the request logs:
+With `DEBUG=true` in `.env`, restart the backend and run the **saved agent** on each surface. Compare the request logs:
 
-**Gemini API:**
+**Gemini API (saved agent):**
 ```text
 POST https://generativelanguage.googleapis.com/v1beta/interactions
-{"agent": "...", "input": "...", "stream": true, "system_instruction": "...", "environment": {...}}
+{"agent": "my-digest", "input": "...", "stream": true, "environment": "remote"}
 ```
 
-**Vertex AI:**
+**Vertex AI (saved agent):**
 ```text
 POST https://aiplatform.googleapis.com/v1beta1/projects/.../locations/global/interactions
-{"agent": "...", "input": "...", "stream": true, "background": true, "store": true}
+{"agent": "my-vertex-digest", "input": "...", "stream": true, "background": true, "store": true}
 ```
 
 Different endpoint, different parameters, same result.
+
+> aside positive
+>
+> **Inline runs always include `system_instruction`.** The comparison above is for saved agents, where the instruction is baked into `base_environment`. When you run without a saved agent, `system_instruction` is sent on every call regardless of surface — you just can't see it in the logs without `DEBUG=true`.
 
 ---
 
