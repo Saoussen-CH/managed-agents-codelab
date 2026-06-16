@@ -399,7 +399,7 @@ Replace `pass` (8-space indentation) with:
 Run a full digest. After it completes, check `data/runs/<id>.json`:
 
 ```bash
-cat data/runs/*.json | python3 -m json.tool | grep -E "environment_id|interaction_id"
+grep -E "environment_id|interaction_id" data/runs/*.json
 ```
 
 Expected output:
