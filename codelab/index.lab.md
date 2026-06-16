@@ -745,10 +745,12 @@ hosted inside your GCP project with IAM authentication, network isolation by def
 > **Pre-GA terms.** The Agent Platform is Pre-GA. Do not use proprietary, sensitive, or confidential data.
 > It is available for limited testing and evaluation only, not commercial or production use.
 
-The remaining steps use the solution app at `codelab/solution`, which has the full dual-surface implementation already built. Switch to it now:
+The remaining steps use the solution app at `codelab/solution`, which has the full dual-surface implementation already built. Switch to it and install dependencies:
 
 ```bash
 cd ../solution
+uv sync
+cd frontend && npm install && cd ..
 ```
 
 All the patterns from the TODOs still apply: the solution is the same app with every TODO filled in plus the Vertex layer.
