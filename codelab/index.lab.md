@@ -428,7 +428,7 @@ Find the `_refine_sync()` function. Look for the `# TODO 5` comment:
         return
 ```
 
-Replace the `put`/`put`/`return` lines (8-space indentation) with:
+Delete the three placeholder lines and type the following in their place (8-space indentation):
 
 ```python
         stream = client.interactions.create(
@@ -440,7 +440,7 @@ Replace the `put`/`put`/`return` lines (8-space indentation) with:
         )
 ```
 
-Then remove the `put({"type": "error"...})` and `put(None)` and `return` lines that follow.
+The `put({"type": "error"...})`, `put(None)`, and `return` lines must be gone. If they stay, the refinement returns an error immediately after starting the stream call.
 
 ### Two independent dimensions
 
