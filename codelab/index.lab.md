@@ -810,19 +810,20 @@ Quota project "your-project-id" was added to ADC
 
 ### Configure the app
 
-Open `.env` and copy-paste the following block at the end of the file:
+Create your `.env` from the template, then open it:
 
 ```bash
-# ============================================
-# Agent Platform (Gemini Enterprise Agent Platform)
-# ============================================
+cp .env.example .env
+```
+
+Fill in `GEMINI_API_KEY` with your key, then uncomment and fill in the Agent Platform block:
+
+```bash
+GEMINI_API_KEY=your-gemini-api-key
+
 USE_VERTEX=true
 GOOGLE_CLOUD_PROJECT=your-project-id
 GOOGLE_CLOUD_LOCATION=global
-
-# NOTE: GEMINI_API_KEY is still needed for PDF downloads even on Agent Platform.
-# Environment snapshots are stored in Gemini file storage regardless of surface.
-GEMINI_API_KEY=your-gemini-api-key
 ```
 
 > aside negative
