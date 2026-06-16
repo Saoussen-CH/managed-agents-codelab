@@ -153,10 +153,10 @@ def _stream_sync(
     loop: asyncio.AbstractEventLoop,
 ) -> None:
     """Runs in a thread executor. Pushes SSE event dicts live into the asyncio queue."""
-    client = _make_client()
     put = lambda event: loop.call_soon_threadsafe(queue.put_nowait, event)
 
     try:
+        client = _make_client()
         prompt = _build_prompt(config["sources"])
         log.info("Starting interaction: agent=%s sources=%d",
                  agent_id or BASE_AGENT, len(config["sources"]))
@@ -247,10 +247,10 @@ def _refine_sync(
     loop: asyncio.AbstractEventLoop,
 ) -> None:
     """Runs in a thread executor. Streams a multi-turn refinement turn."""
-    client = _make_client()
     put = lambda event: loop.call_soon_threadsafe(queue.put_nowait, event)
 
     try:
+        client = _make_client()
         log.info("Starting refinement: env=%s previous=%s",
                  environment_id, interaction_id)
 
