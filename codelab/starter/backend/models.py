@@ -24,8 +24,14 @@ When the user asks for a PDF, follow this exact procedure:
    - Final section "Skip This" with one item and one sentence explaining why to ignore it.
 4. Typography: Helvetica 11pt body, 13pt bold story titles, 14pt bold source headers, 18pt bold cover.
 5. Margins: 1 inch all sides. Leave a blank line between stories.
-6. After writing, run `ls -la /workspace/digest.pdf` to verify.
-7. Tell the user the file path.
+6. Text wrapping: the content width is the page width minus both margins (~6.5in on
+   Letter). Before drawing any title or summary, wrap it to that width with
+   `reportlab.lib.utils.simpleSplit(text, font_name, font_size, content_width)`, then
+   draw each returned line with its own `drawString()` call, advancing y by the line
+   height. Never pass a multi-sentence string to a single `drawString()` call, it will
+   run off the page.
+7. After writing, run `ls -la /workspace/digest.pdf` to verify.
+8. Tell the user the file path.
 """
 
 DEFAULT_AGENTS_MD = """\

@@ -36,7 +36,7 @@ def _make_client():
         if _client_singleton is not None:
             return _client_singleton
         # TODO 1: add genai import and genai.Client() here
-        raise RuntimeError("TODO 1 not implemented — create genai.Client() in _make_client()")
+        raise RuntimeError("TODO 1 not implemented: create genai.Client() in _make_client()")
     return _client_singleton
 
 
@@ -55,7 +55,7 @@ def _build_prompt(sources: list[str]) -> str:
         "Steps:\n"
         "1. Fetch each homepage.\n"
         "2. Extract the top 3 headlines per source.\n"
-        "3. Write the full digest as formatted text — grouped by source, "
+        "3. Write the full digest as formatted text - grouped by source, "
         "2-3 sentence summary per story. Include a 'Skip This' section.\n"
         "4. Output the complete written digest BEFORE generating the PDF.\n"
         "5. Then generate the PDF using the digest-pdf skill."
@@ -137,7 +137,7 @@ def _handle_event(event, put, text_parts: list[str]) -> tuple[str | None, str | 
         #     iid    = getattr(interaction, "id", None)
         #     usage  = getattr(interaction, "usage", None)
         #     if usage:
-        #         log.info("Usage — input=%s output=%s total=%s",
+        #         log.info("Usage: input=%s output=%s total=%s",
         #             getattr(usage, "total_input_tokens", "?"),
         #             getattr(usage, "total_output_tokens", "?"),
         #             getattr(usage, "total_tokens", "?"))
@@ -158,7 +158,7 @@ def _stream_sync(
 
     try:
         prompt = _build_prompt(config["sources"])
-        log.info("Starting interaction — agent=%s sources=%d",
+        log.info("Starting interaction: agent=%s sources=%d",
                  agent_id or BASE_AGENT, len(config["sources"]))
 
         # TODO 2: Build the kwargs dict for interactions.create()
@@ -175,12 +175,12 @@ def _stream_sync(
         # TODO 3: Add system_instruction and environment to kwargs
         # The environment parameter provisions the Linux sandbox and mounts your config files.
         #
-        # Case A — Using a saved agent (agent_id is set):
+        # Case A - Using a saved agent (agent_id is set):
         #   kwargs["environment"] = "remote"
         #   "remote" forks a fresh sandbox from the agent's base_environment.
-        #   Your AGENTS.md and SKILL.md are already baked in — no inline config needed.
+        #   Your AGENTS.md and SKILL.md are already baked in, no inline config needed.
         #
-        # Case B — Using inline config (no saved agent):
+        # Case B - Using inline config (no saved agent):
         #   if agent_id:
         #       kwargs["environment"] = "remote"
         #   else:
@@ -190,8 +190,8 @@ def _stream_sync(
         #           "sources": _inline_sources(config["agents_md"], config["skill_md"]),
         #       }
         #   _inline_sources() mounts two files into the sandbox at startup:
-        #     .agents/AGENTS.md                       → persistent behavioural rules
-        #     .agents/skills/digest-pdf/SKILL.md      → PDF skill auto-discovered by the harness
+        #     .agents/AGENTS.md                       - persistent behavioural rules
+        #     .agents/skills/digest-pdf/SKILL.md      - PDF skill auto-discovered by the harness
 
         if not kwargs:
             put({"type": "error", "message": "TODO 2 and 3 not implemented yet"})
@@ -224,7 +224,7 @@ def _stream_sync(
                 getattr(last, "id", None) if last else None)
         output = "".join(text_parts) if text_parts else None
 
-        log.info("Interaction complete — steps=%d env=%s interaction=%s",
+        log.info("Interaction complete: steps=%d env=%s interaction=%s",
                  step_count, env_id, iid)
         put({"type": "output", "content": output or "",
              "environment_id": env_id, "interaction_id": iid})
@@ -251,13 +251,13 @@ def _refine_sync(
     put = lambda event: loop.call_soon_threadsafe(queue.put_nowait, event)
 
     try:
-        log.info("Starting refinement — env=%s previous=%s",
+        log.info("Starting refinement: env=%s previous=%s",
                  environment_id, interaction_id)
 
         # TODO 5: Implement multi-turn refinement
         # The Interactions API tracks two independent dimensions:
-        #   environment=environment_id          → reuse files, installed packages, sandbox state
-        #   previous_interaction_id=...         → continue conversation context and reasoning trace
+        #   environment=environment_id          - reuse files, installed packages, sandbox state
+        #   previous_interaction_id=...         - continue conversation context and reasoning trace
         # Both are required to resume exactly where the previous turn left off.
         #
         # stream = client.interactions.create(
@@ -268,7 +268,7 @@ def _refine_sync(
         #     stream=True,
         # )
         put({"type": "error",
-             "message": "TODO 5 not implemented — add multi-turn call"})
+             "message": "TODO 5 not implemented: add multi-turn call"})
         put(None)
         return
 
@@ -287,7 +287,7 @@ def _refine_sync(
             iid = getattr(stream, "id", None) or (  # noqa
                 getattr(last, "id", None) if last else None)
         output = "".join(text_parts) if text_parts else None
-        log.info("Refinement complete — steps=%d interaction=%s", step_count, iid)
+        log.info("Refinement complete: steps=%d interaction=%s", step_count, iid)
         put({"type": "output", "content": output or "", "interaction_id": iid})
         put({"type": "done", "pdf_available": True})
 
@@ -301,7 +301,7 @@ def _refine_sync(
 
 def download_pdf(environment_id: str) -> bytes:
     """Download the PDF from the environment snapshot via the Files API."""
-    log.info("Downloading PDF snapshot — env=%s", environment_id)
+    log.info("Downloading PDF snapshot: env=%s", environment_id)
     api_key = os.environ["GEMINI_API_KEY"]
     r = http_requests.get(
         f"https://generativelanguage.googleapis.com/v1beta/files/environment-{environment_id}:download",
@@ -319,5 +319,5 @@ def download_pdf(environment_id: str) -> bytes:
         if not pdf_path.exists():
             raise FileNotFoundError("digest.pdf not found in environment snapshot")
         size = pdf_path.stat().st_size
-        log.info("PDF downloaded — %d bytes", size)
+        log.info("PDF downloaded: %d bytes", size)
         return pdf_path.read_bytes()
