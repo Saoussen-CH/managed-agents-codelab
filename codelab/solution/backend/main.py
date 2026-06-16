@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
     if _USE_VERTEX:
         if not os.environ.get("GOOGLE_CLOUD_PROJECT"):
             raise RuntimeError("GOOGLE_CLOUD_PROJECT must be set when USE_VERTEX=true")
-        log.info("Surface: Vertex AI Agent Platform (project=%s)", os.environ["GOOGLE_CLOUD_PROJECT"])
+        log.info("Surface: Agent Platform (project=%s)", os.environ["GOOGLE_CLOUD_PROJECT"])
     else:
         if not os.environ.get("GEMINI_API_KEY"):
             raise RuntimeError("GEMINI_API_KEY must be set (or set USE_VERTEX=true for Vertex AI)")

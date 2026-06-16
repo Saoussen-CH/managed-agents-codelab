@@ -39,7 +39,7 @@ def _make_client():
             location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
             if not project:
                 raise RuntimeError("GOOGLE_CLOUD_PROJECT must be set when USE_VERTEX=true")
-            log.info("Creating Vertex AI client — project=%s location=%s", project, location)
+            log.info("Creating Vertex AI client: project=%s location=%s", project, location)
             for _key in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
                 os.environ.pop(_key, None)
             _client_singleton = genai.Client(enterprise=True, project=project, location=location)
