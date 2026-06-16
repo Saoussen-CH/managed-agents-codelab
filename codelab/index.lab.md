@@ -810,7 +810,7 @@ Quota project "your-project-id" was added to ADC
 
 ### Configure the app
 
-Open `.env` and add the Agent Platform settings:
+Open `.env` and copy-paste the following block at the end of the file:
 
 ```bash
 # ============================================
