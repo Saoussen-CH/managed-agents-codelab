@@ -998,6 +998,10 @@ Add the bucket name to `.env` automatically:
 echo "GCS_BUCKET=${BUCKET_NAME}" >> .env
 ```
 
+> aside negative
+>
+> **Restart required.** `--reload` watches Python files, not `.env`. After any `.env` change, restart the backend manually: `Ctrl+C`, then `uv run uvicorn backend.main:app --reload`.
+
 ### Upload SKILL.md from the UI
 
 1. Go to the **Skills** page in the app
