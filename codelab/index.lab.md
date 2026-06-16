@@ -559,7 +559,13 @@ Once saved, invoking the agent needs no `sources`, no `system_instruction`: it's
 
 Go to the **Agents** page. Enter `my-digest` as the ID and click Save. The agent should appear in the list.
 
-Go back to Dashboard. Select `my-digest` from the agent dropdown and run a digest. Check the debug logs: you'll see no `system_instruction` or `sources` in the request payload. The saved agent handles both.
+Go back to Dashboard. Select `my-digest` from the agent dropdown and run a digest. In the backend logs, confirm the run uses the saved agent:
+
+```text
+Starting interaction: agent=my-digest sources=3
+```
+
+The request body is not logged, but the app code sends only `agent`, `input`, `environment="remote"`, and `stream=True` for a saved agent — no `system_instruction` or inline sources. The saved agent's `base_environment` handles both.
 
 ---
 
@@ -578,8 +584,8 @@ Now that all TODOs are complete, here is the full flow:
 6. Each event → asyncio.Queue → SSE endpoint → browser StreamFeed
 7. interaction.completed → env_id + interaction_id saved to data/runs/<id>.json
 8. Browser: Download PDF → GET /api/runs/{id}/pdf
-9. Backend → GET generativelanguage.googleapis.com/v1beta/files/environment-{id}:download
-10. Backend: extracts digest.pdf from tar → streams to browser
+9. Backend reads output_text from data/runs/<id>.json, generates PDF locally with ReportLab
+10. Backend streams PDF bytes to browser as application/pdf
 ```
 
 The FastAPI backend acts as a bridge between the browser's SSE connection and the synchronous `google-genai` streaming API. The sync stream runs in `run_in_executor`, pushing events into an `asyncio.Queue` via `loop.call_soon_threadsafe`. The SSE endpoint drains the queue and forwards events to the browser.
@@ -690,7 +696,7 @@ Congratulations! You built a production-quality managed agent application on the
 | `interactions.create(stream=True)` | Provisions a sandbox, runs the agent loop, streams events |
 | `system_instruction` | Sets the agent's editorial voice per call |
 | `environment.sources` (inline) | Mounts AGENTS.md + SKILL.md into the sandbox filesystem |
-| `interaction.completed` | Carries `environment_id` + `interaction_id` for multi-turn + file download |
+| `interaction.completed` | Carries `environment_id` + `interaction_id` needed for multi-turn refinement |
 | `previous_interaction_id` + `environment` | Resumes the same sandbox and conversation |
 | `agents.create()` | Bakes configuration into a saved agent, invokable by ID |
 
@@ -828,11 +834,6 @@ GOOGLE_CLOUD_PROJECT=your-project-id
 GOOGLE_CLOUD_LOCATION=global
 ```
 
-> aside negative
->
-> **Keep GEMINI_API_KEY.** The environment snapshot download (`digest.pdf`) uses the Gemini Files API regardless of
-> surface. Without `GEMINI_API_KEY`, the Download PDF button will fail with a 502.
-
 ---
 
 ## Bonus: Switch the Client to Agent Platform
@@ -897,7 +898,7 @@ Vertex AI interactions require two additional parameters that the Gemini API doe
 
 ### `background=True` and `store=True`
 
-Find `_stream_sync()` and look for this block (already implemented in the master branch):
+Find `_stream_sync()` and look for this block (already implemented in the solution app):
 
 ```python
 if _is_vertex():
@@ -1190,7 +1191,7 @@ You've now run the same app on both surfaces. Here is what actually changed in t
 | Custom agent invocation | `environment="remote"` | Omit `environment` |
 | Agent creation | Synchronous, `agent.id` immediate | LRO: poll `agents.get()` until `id` appears |
 | Skills | Inline sources | GCS source (recommended) |
-| PDF download | `GEMINI_API_KEY` | `GEMINI_API_KEY` (Gemini Files API regardless of surface) |
+| PDF download | Local (ReportLab from `output_text`) | Local (ReportLab from `output_text`) |
 | Auth | API key in `.env` | `gcloud auth application-default login` |
 | Billing | AI Studio prepay credits | GCP project billing |
 
