@@ -976,6 +976,14 @@ when the sandbox starts, not re-sent on every call.
 
 ### Create a GCS bucket
 
+If you opened a new terminal, re-export your project ID first:
+
+```bash
+export PROJECT_ID=your-project-id
+```
+
+Then create the bucket:
+
 ```bash
 export BUCKET_NAME="${PROJECT_ID}-digest-skills"
 
