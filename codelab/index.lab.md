@@ -992,10 +992,10 @@ gcloud storage buckets create gs://${BUCKET_NAME} \
     --project=${PROJECT_ID}
 ```
 
-Add the bucket name to `.env`:
+Add the bucket name to `.env` automatically:
 
-```text
-GCS_BUCKET=your-project-id-digest-skills
+```bash
+echo "GCS_BUCKET=${BUCKET_NAME}" >> .env
 ```
 
 ### Upload SKILL.md from the UI
