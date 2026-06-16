@@ -386,9 +386,11 @@ Replace `pass` (8-space indentation) with:
 
 ### Why these IDs matter
 
-`environment_id` is the address of the sandbox where the agent ran. The PDF `digest.pdf` is still there at `/workspace/digest.pdf`. The **Download PDF** button calls `GET /api/runs/{id}/pdf`, which uses this ID to download the snapshot from the Files API.
+`environment_id` and `interaction_id` are required for the **Refine** panel in TODO 5. The refine endpoint checks both before starting a follow-up turn: if either is `null`, it returns a 400 error and the panel does nothing.
 
-`interaction_id` is this conversation turn. It is required for multi-turn refinement in TODO 5: without it, a follow-up instruction would start a fresh conversation with no context.
+The **Download PDF** button works without these IDs: the app generates the PDF locally from the stored `output_text`, no sandbox access needed. You will have noticed it already works after Step 3.
+
+`interaction_id` is the conversation turn handle. Passing it as `previous_interaction_id` tells the API to continue the same reasoning trace. Without it, a follow-up starts a blank conversation with no memory of what the agent did.
 
 > aside positive
 >
@@ -408,7 +410,7 @@ Expected output:
 "interaction_id": "ChB..."
 ```
 
-The **Download PDF** button should now appear in the Run view.
+The **Refine** panel at the bottom of the Run view is now active. Before this step it returned a 400 error because both IDs were `null`.
 
 ---
 
