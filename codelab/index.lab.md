@@ -1054,7 +1054,14 @@ Expected:
 "gcs_skill_path": "gs://your-project-id-digest-skills/skills/digest-pdf"
 ```
 
-Then go to the **Dashboard** and run a digest. The agent should complete normally. The difference from the previous run: `SKILL.md` was mounted from GCS instead of sent inline with the request. The output and PDF are identical.
+Then go to the **Dashboard** and run a digest. With `DEBUG=true`, look for these two lines in the backend logs — they confirm the skill was loaded from GCS:
+
+```text
+→ {'results': [{'size_bytes': 0, 'name': 'SKILL.md', 'is_dir': False}]}
+→ {'content': '---\nname: digest-pdf\ndescription: Convert a tech news digest...'}
+```
+
+The agent found and read `SKILL.md` from `/.agent/skills/digest-pdf/` — the GCS-mounted path. The output and PDF are identical to the inline run.
 
 ---
 
