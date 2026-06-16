@@ -202,13 +202,15 @@ Find the `_make_client()` function. Inside the `with _client_lock:` block, you'l
         raise RuntimeError("TODO 1 not implemented...")
 ```
 
-Replace both lines, keeping the 8-space indentation, with:
+Delete both lines and type the following in their place (8-space indentation):
 
 ```python
         from google import genai
         log.info("Creating Gemini API client")
         _client_singleton = genai.Client()
 ```
+
+The `raise RuntimeError(...)` line must be gone. If it stays, the error fires even after the client is created.
 
 > aside positive
 >
