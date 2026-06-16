@@ -1,0 +1,26 @@
+{
+  "environment": "web",
+  "format": "html",
+  "prefix": "https://storage.googleapis.com",
+  "mainga": "UA-49880327-14",
+  "updated": "2026-06-16T17:01:07+03:00",
+  "id": "managed-agents-gemini-api",
+  "duration": 115,
+  "title": "Build a Daily Tech Digest Agent with the Gemini Managed Agents API",
+  "authors": "Saoussen Chaabnia",
+  "summary": "Build a full-stack AI agent that fetches tech news, writes editorial summaries, and generates a polished PDF, powered by a single call to the Managed Agents API on Gemini.",
+  "source": "index.lab.md",
+  "theme": "",
+  "status": [
+    "draft"
+  ],
+  "category": [
+    "ai",
+    "geminiapi"
+  ],
+  "tags": [
+    "web"
+  ],
+  "feedback": "https://github.com/googlecodelabs/feedback/issues/new?title=[managed-agents-gemini-api]",
+  "url": "managed-agents-gemini-api"
+}
