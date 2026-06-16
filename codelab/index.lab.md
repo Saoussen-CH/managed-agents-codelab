@@ -120,7 +120,7 @@ INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 
 **Terminal 2 (frontend):**
 ```bash
-cd managed-agents-codelab/codelab/starter/frontend && npm run dev
+cd frontend && npm run dev
 ```
 
 Open http://localhost:5173. The app loads and all pages are accessible. Click **Run Digest**: the button briefly shows "Starting…", then navigates to a Run view. The left stream panel will show:
