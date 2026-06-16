@@ -1113,27 +1113,18 @@ if _is_vertex() and not getattr(agent, "id", None):
 
 ---
 
-## Bonus: Run on Agent Platform
+## Bonus: Run with a Saved Agent on Agent Platform
 
 Duration: 05:00
 
-With `USE_VERTEX=true` and the backend restarted, run a full digest:
+You have already run inline digests on Agent Platform in the previous steps. This step covers the saved agent flow, where `system_instruction` and sources are baked into `base_environment` instead of sent on every call.
 
-1. Go to the **Dashboard**
-2. Select **Base Antigravity agent (remote sandbox)** from the dropdown
-3. Click **Run Digest**
-
-You should see the stream feed populate with Vertex-specific event types and the agent working in the sandbox.
-
-### Try with a saved agent
-
-1. Go to **Agents** → create an agent (e.g. `my-vertex-digest`)
+1. Go to **Agents** → enter an ID (e.g. `my-vertex-digest`) → click **Save**
 2. Wait for provisioning (~30 seconds, shown in the logs)
 3. Go to **Dashboard** → select `my-vertex-digest` from the dropdown
 4. Click **Run Digest**
 
-Notice the request in the logs has no `system_instruction` or `sources`: the saved agent's `base_environment`
-handles both.
+With `DEBUG=true` you should see no `system_instruction` or `sources` in the request: the saved agent's `base_environment` handles both.
 
 ### Inspect the differences
 
