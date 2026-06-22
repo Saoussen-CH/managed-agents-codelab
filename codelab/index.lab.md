@@ -55,7 +55,18 @@ A React + FastAPI web app where:
 
 The React frontend, FastAPI backend, SSE streaming, and file storage are all pre-built. They exist so you can focus on what actually matters: the 6 Managed Agents API calls that make the agent work. You will implement each one from scratch, in sequence, and each one teaches a distinct concept. Without them, the app shows an error. Add them one by one and watch the agent come to life.
 
-This is also a deliberate architecture lesson. In a traditional app, the FastAPI backend would contain all the business logic: fetching URLs, parsing content, summarizing, generating a PDF. Here, all of that moves into a single API call with a markdown config file. The FastAPI becomes a thin HTTP bridge. The agent is the backend.
+This is also a deliberate architecture lesson. In a traditional app, the FastAPI backend would contain all the business logic:
+
+- Installing and managing the right packages (`requests`, `beautifulsoup4`, `reportlab`, `celery`, ...)
+- Writing scripts to fetch URLs from multiple news sites
+- Parsing and extracting content from each one
+- Summarizing each story with an LLM
+- Applying a configured editorial voice
+- Generating a PDF
+- Running all of this asynchronously in a task queue
+- Maintaining all of it as dependencies and APIs change
+
+Here, all of that moves into a single API call with a markdown config file. The FastAPI becomes a thin HTTP bridge. The agent is the backend.
 
 ### What you'll need
 

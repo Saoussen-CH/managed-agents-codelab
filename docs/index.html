@@ -83,7 +83,18 @@
 </ul>
 <h2 is-upgraded>How this codelab works</h2>
 <p>The React frontend, FastAPI backend, SSE streaming, and file storage are all pre-built. They exist so you can focus on what actually matters: the 6 Managed Agents API calls that make the agent work. You will implement each one from scratch, in sequence, and each one teaches a distinct concept. Without them, the app shows an error. Add them one by one and watch the agent come to life.</p>
-<p>This is also a deliberate architecture lesson. In a traditional app, the FastAPI backend would contain all the business logic: fetching URLs, parsing content, summarizing, generating a PDF. Here, all of that moves into a single API call with a markdown config file. The FastAPI becomes a thin HTTP bridge. The agent is the backend.</p>
+<p>This is also a deliberate architecture lesson. In a traditional app, the FastAPI backend would contain all the business logic:</p>
+<ul>
+<li>Installing and managing the right packages (<code>requests</code>, <code>beautifulsoup4</code>, <code>reportlab</code>, <code>celery</code>, ...)</li>
+<li>Writing scripts to fetch URLs from multiple news sites</li>
+<li>Parsing and extracting content from each one</li>
+<li>Summarizing each story with an LLM</li>
+<li>Applying a configured editorial voice</li>
+<li>Generating a PDF</li>
+<li>Running all of this asynchronously in a task queue</li>
+<li>Maintaining all of it as dependencies and APIs change</li>
+</ul>
+<p>Here, all of that moves into a single API call with a markdown config file. The FastAPI becomes a thin HTTP bridge. The agent is the backend.</p>
 <h2 is-upgraded>What you&#39;ll need</h2>
 <ul>
 <li>Python 3.10+ and <a href="https://docs.astral.sh/uv/getting-started/installation/" target="_blank">uv</a></li>
