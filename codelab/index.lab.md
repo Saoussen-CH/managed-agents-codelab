@@ -51,6 +51,12 @@ A React + FastAPI web app where:
 - Resume the same sandbox across turns with `previous_interaction_id` + `environment`
 - Bake configuration into a saved **managed agent** with `agents.create()`
 
+### How this codelab works
+
+The React frontend, FastAPI backend, SSE streaming, and file storage are all pre-built. They exist so you can focus on what actually matters: the 6 Managed Agents API calls that make the agent work. You will implement each one from scratch, in sequence, and each one teaches a distinct concept. Without them, the app shows an error. Add them one by one and watch the agent come to life.
+
+This is also a deliberate architecture lesson. In a traditional app, the FastAPI backend would contain all the business logic: fetching URLs, parsing content, summarizing, generating a PDF. Here, all of that moves into a single API call with a markdown config file. The FastAPI becomes a thin HTTP bridge. The agent is the backend.
+
 ### What you'll need
 
 - Python 3.10+ and [uv](https://docs.astral.sh/uv/getting-started/installation/)
@@ -143,9 +149,26 @@ Duration: 03:00
 
 Before writing code, let's understand what makes the Managed Agents API different.
 
+### The architectural shift
+
+In a traditional web app, the backend is where business logic lives. For an app like Daily Digest, that would mean:
+
+- A scraper that fetches headlines from multiple news sites
+- A summarization pipeline that calls an LLM for each story
+- An editorial pass that applies a configured voice
+- A PDF renderer that formats the output
+- A task queue to run all of this asynchronously
+- Infrastructure to provision, scale, and secure all of it
+
+That is hundreds of lines of code across multiple files, libraries, and services, before you write a single prompt.
+
+**The Managed Agents API removes that floor entirely.** You replace the entire business logic layer with one API call and two markdown config files. The FastAPI server is still there, but it becomes a thin HTTP bridge: it receives the browser request, delegates the work to the agent, and streams the result back. The agent fetches the URLs, writes the summaries, applies your editorial voice, generates the PDF, and manages its own filesystem, autonomously, inside a Google-hosted Linux sandbox.
+
+The agent is the backend.
+
 ### The problem it solves
 
-Building a real AI agent means writing a lot of infrastructure before you get to the interesting part:
+Concretely, building that traditional backend means:
 
 - Provision a secure, isolated sandbox per user
 - Wire up tool execution (web access, code runner, file system)
@@ -153,7 +176,7 @@ Building a real AI agent means writing a lot of infrastructure before you get to
 - Persist files across turns
 - Scale it reliably
 
-**The Managed Agents API removes that floor entirely.** One call provisions a Ubuntu Linux sandbox hosted by Google. The agent reasons, writes and runs code, fetches URLs, and manages files, autonomously, until the task is done. You describe the task. The agent does the work.
+One call to `interactions.create()` gives you all of that. You describe the task. The agent does the work.
 
 ### Building blocks
 

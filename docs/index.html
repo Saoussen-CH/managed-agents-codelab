@@ -81,6 +81,9 @@
 <li>Resume the same sandbox across turns with <code>previous_interaction_id</code> + <code>environment</code></li>
 <li>Bake configuration into a saved <strong>managed agent</strong> with <code>agents.create()</code></li>
 </ul>
+<h2 is-upgraded>How this codelab works</h2>
+<p>The React frontend, FastAPI backend, SSE streaming, and file storage are all pre-built. They exist so you can focus on what actually matters: the 6 Managed Agents API calls that make the agent work. You will implement each one from scratch, in sequence, and each one teaches a distinct concept. Without them, the app shows an error. Add them one by one and watch the agent come to life.</p>
+<p>This is also a deliberate architecture lesson. In a traditional app, the FastAPI backend would contain all the business logic: fetching URLs, parsing content, summarizing, generating a PDF. Here, all of that moves into a single API call with a markdown config file. The FastAPI becomes a thin HTTP bridge. The agent is the backend.</p>
 <h2 is-upgraded>What you&#39;ll need</h2>
 <ul>
 <li>Python 3.10+ and <a href="https://docs.astral.sh/uv/getting-started/installation/" target="_blank">uv</a></li>
@@ -139,8 +142,21 @@ cd frontend &amp;&amp; npm install &amp;&amp; cd ..
     
       <google-codelab-step label="Understand the Managed Agents API" duration="3">
         <p>Before writing code, let&#39;s understand what makes the Managed Agents API different.</p>
+<h2 is-upgraded>The architectural shift</h2>
+<p>In a traditional web app, the backend is where business logic lives. For an app like Daily Digest, that would mean:</p>
+<ul>
+<li>A scraper that fetches headlines from multiple news sites</li>
+<li>A summarization pipeline that calls an LLM for each story</li>
+<li>An editorial pass that applies a configured voice</li>
+<li>A PDF renderer that formats the output</li>
+<li>A task queue to run all of this asynchronously</li>
+<li>Infrastructure to provision, scale, and secure all of it</li>
+</ul>
+<p>That is hundreds of lines of code across multiple files, libraries, and services, before you write a single prompt.</p>
+<p><strong>The Managed Agents API removes that floor entirely.</strong> You replace the entire business logic layer with one API call and two markdown config files. The FastAPI server is still there, but it becomes a thin HTTP bridge: it receives the browser request, delegates the work to the agent, and streams the result back. The agent fetches the URLs, writes the summaries, applies your editorial voice, generates the PDF, and manages its own filesystem, autonomously, inside a Google-hosted Linux sandbox.</p>
+<p>The agent is the backend.</p>
 <h2 is-upgraded>The problem it solves</h2>
-<p>Building a real AI agent means writing a lot of infrastructure before you get to the interesting part:</p>
+<p>Concretely, building that traditional backend means:</p>
 <ul>
 <li>Provision a secure, isolated sandbox per user</li>
 <li>Wire up tool execution (web access, code runner, file system)</li>
@@ -148,7 +164,7 @@ cd frontend &amp;&amp; npm install &amp;&amp; cd ..
 <li>Persist files across turns</li>
 <li>Scale it reliably</li>
 </ul>
-<p><strong>The Managed Agents API removes that floor entirely.</strong> One call provisions a Ubuntu Linux sandbox hosted by Google. The agent reasons, writes and runs code, fetches URLs, and manages files, autonomously, until the task is done. You describe the task. The agent does the work.</p>
+<p>One call to <code>interactions.create()</code> gives you all of that. You describe the task. The agent does the work.</p>
 <h2 is-upgraded>Building blocks</h2>
 <table>
 <tr><td colspan="1" rowspan="1"><p>Concept</p>
